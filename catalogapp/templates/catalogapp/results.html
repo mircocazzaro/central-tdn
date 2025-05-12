@@ -1,0 +1,57 @@
+{% extends 'catalogapp/base.html' %}
+{% block content %}
+<div class="card">
+  <div class="card-body">
+    <h2>Results</h2>
+    <pre>{{ query }}</pre>
+
+    {% if results.0.boolean is not None %}
+      <ul class="list-group">
+        {% for r in results %}
+          <li class="list-group-item d-flex align-items-center">
+            <img src="{{ r.logo_url }}"
+                 alt="{{ r.endpoint }} logo"
+                 style="height:24px; width:auto; margin-right:8px;">
+            {{ r.endpoint }} → <strong>{{ r.boolean }}</strong>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="table-responsive">
+        <table class="table table-bordered">
+          <thead>
+            <tr>
+              <th>Logo</th>
+              <th>Endpoint</th>
+              {# Only render other columns #}
+              {% for k in results.0.keys %}
+                {% if k != 'logo_url' and k != 'endpoint' %}
+                  <th>{{ k }}</th>
+                {% endif %}
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in results %}
+              <tr>
+                <td>
+                  <img src="{{ row.logo_url }}"
+                       alt="{{ row.endpoint }} logo"
+                       style="height:24px; width:auto;">
+                </td>
+                <td>{{ row.endpoint }}</td>
+                {# Now output each remaining field #}
+                {% for key, value in row.items %}
+                  {% if key != 'logo_url' and key != 'endpoint' %}
+                    <td>{{ value }}</td>
+                  {% endif %}
+                {% endfor %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

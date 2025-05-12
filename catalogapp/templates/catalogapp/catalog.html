@@ -1,0 +1,22 @@
+{% extends 'catalogapp/base.html' %}
+{% block content %}
+<div class="card">
+  <div class="card-body">
+    <h2>SPARQL Query Catalog</h2>
+    {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+    <ul class="list-group">
+      {% for c in catalog %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+          <div>
+            <strong>[L{{ c.level }}]</strong>
+            {{ c.description }}
+          </div>
+          <a href="{% url 'central_query' %}?id={{ c.id }}" class="btn btn-sm btn-primary">
+            ▶ Run
+          </a>
+        </li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endblock %}
