@@ -1,0 +1,22 @@
+{# catalogapp/templates/catalogapp/query.html #}
+{% extends 'catalogapp/base.html' %}
+{% block content %}
+<div class="card">
+  <div class="card-body">
+    <h2>Parameters</h2>
+    <p><em>{{ description }}</em></p>
+    <pre>{{ template }}</pre>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="id" value="{{ id }}"/>
+      {% for f in form %}
+        <div class="mb-3">
+          {{ f.label_tag }}<br>
+          {{ f }}
+        </div>
+      {% endfor %}
+      <button class="btn btn-success">Dispatch to all endpoints</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

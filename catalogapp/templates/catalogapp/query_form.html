@@ -1,0 +1,11 @@
+<h2>Parameters for</h2>
+<pre>{{ template }}</pre>
+<form method="post">
+  {% csrf_token %}
+  {% for f in form %}
+    <div>
+      {{ f.label_tag }} {{ f }}
+    </div>
+  {% endfor %}
+  <button>Run on all endpoints</button>
+</form>

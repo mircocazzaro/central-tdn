@@ -1,0 +1,38 @@
+{% extends 'catalogapp/base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2>Endpoints</h2>
+  <a href="{% url 'endpoint_add' %}" class="btn btn-success">+ Add</a>
+</div>
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>Logo</th>
+      <th>Name</th>
+      <th>URL</th>
+      <th>Status</th>   {# new column header #}
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for ep in endpoints %}
+      <tr>
+        <td><img src="{{ ep.logo.url }}" height="40"/></td>
+        <td>{{ ep.name }}</td>
+        <td><a href="{{ ep.url }}" target="_blank">{{ ep.url }}</a></td>
+        <td>
+          {% if ep.online %}
+            <span class="badge bg-success">Online</span>
+          {% else %}
+            <span class="badge bg-danger">Offline</span>
+          {% endif %}
+        </td>
+        <td>
+          <a href="{% url 'endpoint_edit' ep.pk %}" class="btn btn-sm btn-primary">Edit</a>
+          <a href="{% url 'endpoint_delete' ep.pk %}" class="btn btn-sm btn-danger">Del</a>
+        </td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
