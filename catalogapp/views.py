@@ -8,6 +8,8 @@ from django.conf           import settings
 from django.contrib        import messages
 from django.views.decorators.http import require_http_methods
 from requests_toolbelt.utils import dump
+from django.contrib.auth.decorators import login_required
+
 
 from functools import wraps
 
@@ -100,6 +102,10 @@ def endpoint_edit(request, pk):
 def endpoint_delete(request, pk):
     ep = get_object_or_404(Endpoint, pk=pk)
     if request.method == 'POST':
+        # remove the file from storage first
+        if ep.logo:
+            ep.logo.delete(save=False)
+        # then delete the DB record
         ep.delete()
         messages.success(request, "Endpoint deleted!")
         return redirect('endpoint_manager')
@@ -115,7 +121,7 @@ def home(request):
     """
     return redirect('central_catalog')
 
-
+@login_required
 def central_catalog(request):
     entries = catalog()
     # give each one a simple integer id
@@ -126,7 +132,7 @@ def central_catalog(request):
     })
 
 
-
+@login_required
 def query_view(request):
     """
     Render the parameter‐form for a chosen query template (GET),
@@ -185,6 +191,7 @@ PREFIX NCIT:  <http://purl.obolibrary.org/obo/NCIT_>
 
                 resp.raise_for_status()
                 data = resp.json()
+                print(data)
 
                 # Handle ASK, SELECT, or empty/unauthorized cases
                 if 'boolean' in data:
@@ -204,7 +211,7 @@ PREFIX NCIT:  <http://purl.obolibrary.org/obo/NCIT_>
             
                 else:
                     results.append({'endpoint': ep.name, 'logo_url': ep.logo.url, 'error': 'Invalid response'})
-
+        
             return render(request, 'catalogapp/results.html', {
                 'query':   q,
                 'results': results

@@ -1,22 +1,257 @@
 {% extends 'catalogapp/base.html' %}
+{% load static %}
+
 {% block content %}
-<div class="card">
-  <div class="card-body">
-    <h2>SPARQL Query Catalog</h2>
-    {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
-    <ul class="list-group">
-      {% for c in catalog %}
-        <li class="list-group-item d-flex justify-content-between align-items-center">
-          <div>
-            <strong>[L{{ c.level }}]</strong>
-            {{ c.description }}
-          </div>
-          <a href="{% url 'central_query' %}?id={{ c.id }}" class="btn btn-sm btn-primary">
-            ▶ Run
-          </a>
-        </li>
-      {% endfor %}
-    </ul>
+  <!-- Embed catalog JSON -->
+  {{ catalog|json_script:"catalogData" }}
+
+  <div class="row main-content">
+    <!-- Left pane: Full Queries List -->
+    <div class="col-md-4">
+      <h4 class="mb-3">📋 Choose a Query</h4>
+      <ul id="query-list" class="list-group mb-4"></ul>
+    </div>
+
+    <!-- Right pane: Form & Results -->
+    <div class="col-md-8">
+      <div id="query-form-container" class="card shadow-sm p-4 mb-4" style="display:none;">
+        <h5 id="query-description" class="mb-3"></h5>
+        <form id="query-form">
+          <div id="form-fields"></div>
+          <button type="submit" class="btn btn-primary animate__animated animate__pulse animate__infinite">🚀 Run</button>
+        </form>
+      </div>
+      <div id="results-container"></div>
+    </div>
   </div>
-</div>
+
+  <!-- Load jQuery BEFORE any $ script -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+  <!-- SPA script -->
+  <script>
+  (function() {
+    // CSRF helper
+    function getCookie(name) {
+      let cookieValue = null;
+      if (document.cookie && document.cookie !== '') {
+        document.cookie.split(';').forEach(cookie => {
+          cookie = cookie.trim();
+          if (cookie.startsWith(name + '=')) {
+            cookieValue = decodeURIComponent(cookie.slice(name.length + 1));
+          }
+        });
+      }
+      return cookieValue;
+    }
+    const csrftoken = getCookie('csrftoken');
+    $.ajaxSetup({
+      beforeSend: function(xhr, settings) {
+        if (!/^GET|HEAD|OPTIONS|TRACE$/.test(settings.type) && !this.crossDomain) {
+          xhr.setRequestHeader('X-CSRFToken', csrftoken);
+        }
+      }
+    });
+
+    // Parse catalog JSON
+    const catalogData = JSON.parse(
+      document.getElementById('catalogData').textContent
+    );
+
+    // Predefined question choices
+    const questionChoices = [
+      ['<https://w3id.org/brainteaser/ontology/schema/alsfrs1>',  'I have been less alert'],
+      ['<https://w3id.org/brainteaser/ontology/schema/alsfrs2>',  'I have had difficulty paying attention for long periods of time'],
+      ['<https://w3id.org/brainteaser/ontology/schema/alsfrs3>',  'I have been unable to think clearly'],
+      ['<https://w3id.org/brainteaser/ontology/schema/alsfrs4>',  'I have been clumsy and uncoordinated'],
+      ['<https://w3id.org/brainteaser/ontology/schema/alsfrs5>',  'I have been forgetful'],
+      ['<https://w3id.org/brainteaser/ontology/schema/alsfrs6>',  'I have had to pace myself in my physical activities'],
+      ['<https://w3id.org/brainteaser/ontology/schema/alsfrs7>',  'I have been less motivated to do anything that requires physical effort'],
+      ['<https://w3id.org/brainteaser/ontology/schema/alsfrs8>',  'I have been less motivated to participate in social activities'],
+      ['<https://w3id.org/brainteaser/ontology/schema/alsfrs9>',  'I have been limited in my ability to do things away from home'],
+      ['<https://w3id.org/brainteaser/ontology/schema/alsfrs10>', 'I have trouble maintaining physical effort for long periods'],
+      ['<https://w3id.org/brainteaser/ontology/schema/alsfrs11>', 'I have had difficulty making decisions'],
+      ['<https://w3id.org/brainteaser/ontology/schema/alsfrs12>', 'I have been less motivated to do anything that requires thinking']
+    ];
+
+    const diseasesMap = [
+    ['NCIT:C34373',  'Amyotrophic Lateral Sclerosis'],
+    ['NCIT:C3243',  'Multiple Sclerosis'],
+    ['NCIT:C26845',  'Parkinson Disease'],
+  ];
+
+    // Populate full query list
+    catalogData.forEach(q => {
+      $('#query-list').append(
+        `<li class="list-group-item query-item" 
+             data-id="${q.id}" 
+             data-params='${JSON.stringify(q.params)}' 
+             data-description="${q.description}">
+           ${q.description}
+         </li>`
+      );
+    });
+
+    // Hover effect for query items
+    $(document).on('mouseenter', '.query-item', function() {
+      $(this).addClass('active');
+    }).on('mouseleave', '.query-item', function() {
+      $(this).removeClass('active');
+    });
+
+    // Build form on query click
+    $(document).on('click', '.query-item', function() {
+      // 1. Toggle the “selected” class
+      $('.query-item').removeClass('selected');
+      $(this).addClass('selected');
+      const id = $(this).data('id');
+      const params = $(this).data('params');
+      const desc = $(this).data('description');
+      $('#query-description').text(desc);
+      const $fields = $('#form-fields').empty();
+      params.forEach(p => {
+        if (p === 'disease') {
+          const opts = diseasesMap.map(([val, txt]) =>
+            `<option value="${val}">${txt}</option>`
+          ).join('');
+          $fields.append(`
+            <div class="mb-3">
+              <label class="form-label">Select Disease</label>
+              <select name="disease" class="form-select form-select-sm" required>
+                ${opts}
+              </select>
+            </div>
+          `);
+        } else if (p === 'question') {
+          const opts = questionChoices.map(([val, txt]) =>
+            `<option value="${val}">${txt}</option>`
+          ).join('');
+          $fields.append(`
+            <div class="mb-3">
+              <label class="form-label">Select ALSFRS question</label>
+              <select name="question" class="form-select form-select-sm" required>
+                ${opts}
+              </select>
+            </div>
+          `);
+        } else if (/date/i.test(p)) {
+          $fields.append(`
+            <div class="mb-3">
+              <label class="form-label text-capitalize">${p.replace('_',' ')}</label>
+              <input type="date" name="${p}" class="form-control form-control-sm" required>
+            </div>
+          `);
+        } else if (/^age/i.test(p)) {
+          $fields.append(`
+            <div class="mb-3">
+              <label class="form-label text-capitalize">${p.replace('_',' ')}</label>
+              <input type="number" name="${p}" class="form-control form-control-sm" required>
+            </div>
+          `);
+        } else {
+          $fields.append(`
+            <div class="mb-3">
+              <label class="form-label text-capitalize">${p.replace('_',' ')}</label>
+              <input type="text" name="${p}" class="form-control form-control-sm" required>
+            </div>
+          `);
+        }
+      });
+      $fields.append(`<input type="hidden" name="id" value="${id}">`);
+      $('#query-form-container').fadeIn();
+      $('#results-container').empty();
+    });
+
+    // AJAX form submit
+    $('#query-form').on('submit', function(e) {
+      e.preventDefault();
+      $('#results-container').html(`
+        <div class="text-center py-5">
+          <div class="spinner-border text-primary" role="status"></div>
+          <div>Running query...</div>
+        </div>
+      `);
+      $.post("{% url 'central_query' %}", $(this).serialize())
+        .done(html => {
+          const section = $(html).find('#results-section').html() || html;
+          $('#results-container').html(section).fadeIn(200);
+        })
+        .fail(() => {
+          $('#results-container').html(`
+            <div class="alert alert-danger">❌ Query execution failed.</div>
+          `);
+        });
+    });
+    $('#query-form-container').fadeIn();
+    $('#results-container').empty();
+  })();
+  </script>
+
+  <!-- Styles & Animations -->
+  <style>
+    .query-item {
+      cursor: pointer;
+      transition: background-color 0.3s, transform 0.2s;
+    }
+    .query-item.active {
+      background-color: #e3f2fd;
+      transform: scale(1.02);
+    }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(0,123,255, 0.4); }
+      70% { box-shadow: 0 0 0 10px rgba(0,123,255, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(0,123,255, 0); }
+    }
+    .main-content {
+      max-width: 1900px !important;
+    }
+    /* Highlight the selected query */
+    .query-item.selected {
+        background-color: #e3f2fd;      /* light blue bg */
+        border-left: 4px solid #007bff; /* blue accent on left */
+        transform: scale(1.02);         /* same “pop” you used on hover */
+    }
+    #results-container th[role="columnheader"] {
+        cursor: pointer;
+    }
+    
+    /* Make room for the arrow and align it */
+    #results-container th[role="columnheader"] {
+      position: relative;
+      padding-right: 1.5em;   /* give space for the triangle */
+      cursor: pointer;
+    }
+
+    /* Base triangle (hidden) */
+    #results-container th[role="columnheader"]::after {
+      content: '';
+      position: absolute;
+      right: 0.6em;            /* tweak to sit inside your padding */
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 0.8em;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    /* Hover on unsorted headers: show a “▲” hint */
+    #results-container th[role="columnheader"][aria-sort="none"]:hover::after {
+      content: '▲';
+      opacity: 0.5;
+    }
+
+    /* When sorted ascending: solid ▲ */
+    #results-container th[aria-sort="ascending"]::after {
+      content: '▲';
+      opacity: 1;
+    }
+
+    /* When sorted descending: solid ▼ */
+    #results-container th[aria-sort="descending"]::after {
+      content: '▼';
+      opacity: 1;
+    }
+
+  </style>
 {% endblock %}
+
