@@ -1,0 +1,212 @@
+{% extends 'catalogapp/base.html' %}
+{% load static %}
+
+{% block content %}
+  <!-- Catalog data as JSON (hidden script tag) -->
+  {{ catalog|json_script:"catalogData" }}
+
+  
+    <div class="row">
+      <!-- Left pane: Levels & Queries -->
+      <div class="col-md-4">
+        <h4 class="mb-3">🔍 Choose Query Level</h4>
+        <ul id="level-list" class="list-group mb-4"></ul>
+
+        <div id="query-list-container" class="mb-4" style="display:none;">
+          <h5 class="mb-2">📋 Queries</h5>
+          <ul id="query-list" class="list-group"></ul>
+        </div>
+      </div>
+
+      <!-- Right pane: Form & Results -->
+      <div class="col-md-8">
+        <div id="query-form-container" class="card shadow-sm p-4 mb-4" style="display:none;">
+          <h5 id="query-description" class="mb-3"></h5>
+          <form id="query-form">
+            <div id="form-fields"></div>
+            <button type="submit" class="btn btn-primary animate__animated animate__pulse animate__infinite">🚀 Run</button>
+          </form>
+        </div>
+        <div id="results-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Load jQuery HERE, before any script that uses $ -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+  <!-- Main SPA script -->
+  <script>
+  (function() {
+    // CSRF helper
+    function getCookie(name) {
+      let cookieValue = null;
+      if (document.cookie && document.cookie !== '') {
+        for (let cookie of document.cookie.split(';')) {
+          cookie = cookie.trim();
+          if (cookie.startsWith(name + '=')) {
+            cookieValue = decodeURIComponent(cookie.slice(name.length + 1));
+            break;
+          }
+        }
+      }
+      return cookieValue;
+    }
+    const csrftoken = getCookie('csrftoken');
+    $.ajaxSetup({
+      beforeSend: function(xhr, settings) {
+        if (!/^GET|HEAD|OPTIONS|TRACE$/.test(settings.type) && !this.crossDomain) {
+          xhr.setRequestHeader('X-CSRFToken', csrftoken);
+        }
+      }
+    });
+
+    // Parse catalog JSON
+    const catalogData = JSON.parse(
+      document.getElementById('catalogData').textContent
+    );
+
+    // Predefined question choices
+    const questionChoices = [
+      ['<https://w3id.org/brainteaser/ontology/schema/alsfrs1>',  'I have been less alert'],
+      ['<https://w3id.org/brainteaser/ontology/schema/alsfrs2>',  'I have had difficulty paying attention for long periods of time'],
+      ['<https://w3id.org/brainteaser/ontology/schema/alsfrs3>',  'I have been unable to think clearly'],
+      ['<https://w3id.org/brainteaser/ontology/schema/alsfrs4>',  'I have been clumsy and uncoordinated'],
+      ['<https://w3id.org/brainteaser/ontology/schema/alsfrs5>',  'I have been forgetful'],
+      ['<https://w3id.org/brainteaser/ontology/schema/alsfrs6>',  'I have had to pace myself in my physical activities'],
+      ['<https://w3id.org/brainteaser/ontology/schema/alsfrs7>',  'I have been less motivated to do anything that requires physical effort'],
+      ['<https://w3id.org/brainteaser/ontology/schema/alsfrs8>',  'I have been less motivated to participate in social activities'],
+      ['<https://w3id.org/brainteaser/ontology/schema/alsfrs9>',  'I have been limited in my ability to do things away from home'],
+      ['<https://w3id.org/brainteaser/ontology/schema/alsfrs10>', 'I have trouble maintaining physical effort for long periods'],
+      ['<https://w3id.org/brainteaser/ontology/schema/alsfrs11>', 'I have had difficulty making decisions'],
+      ['<https://w3id.org/brainteaser/ontology/schema/alsfrs12>', 'I have been less motivated to do anything that requires thinking']
+    ];
+
+    // Populate levels list
+    const levels = [...new Set(catalogData.map(e => e.level))].sort((a,b) => a - b);
+    levels.forEach(level => {
+      $('#level-list').append(
+        `<li class="list-group-item level-item" data-level="${level}">
+           <strong>Level ${level}</strong>
+         </li>`
+      );
+    });
+
+    // Hover effect
+    $(document).on('mouseenter', '.level-item, .query-item', function() {
+      $(this).addClass('active');
+    }).on('mouseleave', '.level-item, .query-item', function() {
+      $(this).removeClass('active');
+    });
+
+    // Show queries for selected level
+    $(document).on('click', '.level-item', function() {
+      const lvl = $(this).data('level');
+      const filtered = catalogData.filter(e => e.level === lvl);
+      $('#query-list').empty();
+      filtered.forEach(q => {
+        $('#query-list').append(
+          `<li class="list-group-item query-item"
+               data-id="${q.id}"
+               data-params='${JSON.stringify(q.params)}'
+               data-description="${q.description}">
+             ${q.description}
+           </li>`
+        );
+      });
+      $('#query-list-container').slideDown();
+      $('#query-form-container, #results-container').hide();
+    });
+
+    // Build form when query clicked
+    $(document).on('click', '.query-item', function() {
+      const id = $(this).data('id');
+      const params = $(this).data('params');
+      const desc = $(this).data('description');
+      $('#query-description').text(desc);
+      const $fields = $('#form-fields').empty();
+      params.forEach(p => {
+        if (p === 'question') {
+          let opts = questionChoices.map(([val, txt]) =>
+            `<option value="${val}">${txt}</option>`
+          ).join('');
+          $fields.append(`
+            <div class="mb-3">
+              <label class="form-label">Select ALSFRS question</label>
+              <select name="question" class="form-select form-select-sm" required>
+                ${opts}
+              </select>
+            </div>
+          `);
+        } else if (/date/i.test(p)) {
+          $fields.append(`
+            <div class="mb-3">
+              <label class="form-label text-capitalize">${p.replace('_',' ')}</label>
+              <input type="date" name="${p}" class="form-control form-control-sm" required>
+            </div>
+          `);
+        } else if (/^age/i.test(p)) {
+          $fields.append(`
+            <div class="mb-3">
+              <label class="form-label text-capitalize">${p.replace('_',' ')}</label>
+              <input type="number" name="${p}" class="form-control form-control-sm" required>
+            </div>
+          `);
+        } else {
+          $fields.append(`
+            <div class="mb-3">
+              <label class="form-label text-capitalize">${p.replace('_',' ')}</label>
+              <input type="text" name="${p}" class="form-control form-control-sm" required>
+            </div>
+          `);
+        }
+      });
+      $fields.append(`<input type="hidden" name="id" value="${id}">`);
+      $('#query-form-container').fadeIn();
+      $('#results-container').empty();
+    });
+
+    // AJAX form submit
+    $('#query-form').on('submit', function(e) {
+      e.preventDefault();
+      $('#results-container').html(`
+        <div class="text-center py-5">
+          <div class="spinner-border text-primary" role="status"></div>
+          <div>Running query...</div>
+        </div>
+      `);
+      $.post("{% url 'central_query' %}", $(this).serialize())
+        .done(html => {
+          const section = $(html).find('#results-section').html() || html;
+          $('#results-container').html(section)
+          .fadeIn(200);
+        })
+        .fail(() => {
+          $('#results-container').html(`
+            <div class="alert alert-danger">❌ Query execution failed.</div>
+          `);
+        });
+    });
+  })();
+  </script>
+
+  <!-- Styles & Animations -->
+  <style>
+    .level-item, .query-item {
+      cursor: pointer;
+      transition: background-color 0.3s, transform 0.2s;
+    }
+    .level-item.active, .query-item.active {
+      background-color: #e3f2fd;
+      transform: scale(1.02);
+    }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(0,123,255, 0.4); }
+      70% { box-shadow: 0 0 0 10px rgba(0,123,255, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(0,123,255, 0); }
+    }
+    .main-content {
+      max-width: 1900px !important;
+    }
+  </style>
+{% endblock %}
