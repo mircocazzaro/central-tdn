@@ -89,23 +89,72 @@ GROUP BY ?site''',
       'params': [],
       'description': 'Average age at onset grouped by bulbar vs spinal (ALS‐specific)'
     },
-    {
+    { 
       'level': 3,
-      'template': '''SELECT ?bracket (COUNT(DISTINCT ?pat) AS ?n) WHERE {
+      'template': '''SELECT ?bracket ?n WHERE {
+SELECT ?bracket (AVG(?ageOn) AS ?avgAgeOn) (COUNT(DISTINCT ?pat) AS ?n) WHERE {
   ?pat a bto:Patient ;
        bto:hasDisease {disease} ;
        bto:undergo ?ev .
   ?ev  a bto:Onset ;
        bto:ageOnset ?ageOn .
   BIND(
-    IF(?ageOn < {age1}, "{age1}",
-      IF(?ageOn <= {age2}, "{age1}–{age2}", ">{age3}")
-    ) AS ?bracket
+    IF(?ageOn < {age1}, "<{age1}",
+      IF(?ageOn <= {age2}, "{age1}–{age2}", IF(?ageOn <= {age3}, "{age2}-{age3}", ">{age3}")
+    ) ) AS ?bracket
   )
 }
-GROUP BY ?bracket''',
+GROUP BY ?bracket
+ORDER BY ?avgAgeOn
+}''',
       'params': ['disease','age1','age2','age3'],
       'description': 'Count of DISEASE patients by age bracket'
+    },
+    {
+        'level': 3,
+        'template': '''SELECT ?question ?avgq ?grad WHERE {
+  {
+    SELECT ?question (AVG(?q) AS ?avgq) 
+    WHERE {
+      ?pat a bto:Patient ;
+           bto:hasDisease NCIT:C34373 ;
+           bto:undergo ?ev .
+      ?ev  bto:consists ?alsfrs .
+      ?alsfrs a bto:ALSFRS ;
+              ?quest ?q .
+
+      # <-- user-provided question URI goes here
+      FILTER (?quest = {question})
+
+      BIND(IF (
+          ?quest = <https://w3id.org/brainteaser/ontology/schema/alsfrs1>, "I have been less alert", IF (
+          ?quest = <https://w3id.org/brainteaser/ontology/schema/alsfrs2>, "I have had difficulty paying attention for long periods of time", IF (
+          ?quest = <https://w3id.org/brainteaser/ontology/schema/alsfrs3>, "I have been unable to think clearly", IF (
+          ?quest = <https://w3id.org/brainteaser/ontology/schema/alsfrs4>, "I have been clumsy and uncoordinated", IF (
+          ?quest = <https://w3id.org/brainteaser/ontology/schema/alsfrs5>, "I have been forgetful", IF (
+          ?quest = <https://w3id.org/brainteaser/ontology/schema/alsfrs6>, "I have had to pace myself in my physical activities", IF (
+          ?quest = <https://w3id.org/brainteaser/ontology/schema/alsfrs7>, "I have been less motivated to do anything that requires physical effort", IF (
+          ?quest = <https://w3id.org/brainteaser/ontology/schema/alsfrs8>, "I have been less motivated to participate in social activities", IF (
+          ?quest = <https://w3id.org/brainteaser/ontology/schema/alsfrs9>, "I have been limited in my ability to do things away from home", IF (
+          ?quest = <https://w3id.org/brainteaser/ontology/schema/alsfrs10>, "I have trouble maintaining physical effort for long periods", IF (
+          ?quest = <https://w3id.org/brainteaser/ontology/schema/alsfrs11>, "I have had difficulty making decisions", IF (
+          ?quest = <https://w3id.org/brainteaser/ontology/schema/alsfrs12>, "I have been less motivated to do anything that requires thinking", "" ) ) ) ) ) ) ) ) ) ) )) 
+        
+        AS ?question )
+    }
+    GROUP BY ?question
+  }
+  BIND(
+    IF(?avgq < 0.5, "Never",
+    IF(?avgq < 1.5, "Rarely",
+    IF(?avgq < 2.5, "Sometimes",
+    IF(?avgq < 3.5, "Often",
+       "Almost Always"))))
+    AS ?grad
+  )
+}''',
+        'params': ['question'],
+        'description': 'Average ALSFRS score for a selected question (with human-readable text and grading)',
     },
     # Level 4
     {
