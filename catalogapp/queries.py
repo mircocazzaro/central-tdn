@@ -91,6 +91,7 @@ GROUP BY ?site''',
     },
     { 
       'level': 3,
+      'analytics_key': 'ageDist',
       'template': '''SELECT ?bracket ?n WHERE {
 SELECT ?bracket (AVG(?ageOn) AS ?avgAgeOn) (COUNT(DISTINCT ?pat) AS ?n) WHERE {
   ?pat a bto:Patient ;
@@ -207,7 +208,8 @@ GROUP BY ?onsetTypes''',
        bto:bulbarOnset ?b .
 }''',
       'params': ['disease'],
-      'description': 'Anonymized ALS‐onset profile (MD5 pat, age, onset age, bulbar)'
+      'description': 'Anonymized ALS‐onset profile (MD5 pat, age, onset age, bulbar)',
+      'analytics_key': 'klDiv'
     },
     {
       'level': 5,
@@ -263,15 +265,17 @@ ORDER BY ?anonID ?tDate''',
 ]
 
 def catalog():
-    """Return list of dicts with hash, level, params, template, and description."""
     out = []
     for e in RAW_TEMPLATES:
         h = hashlib.sha512(e['template'].encode()).hexdigest()
-        out.append({
+        entry = {
             'hash':        h,
             'level':       e['level'],
             'template':    e['template'],
             'params':      e['params'],
             'description': e['description'],
-        })
+        }
+        if 'analytics_key' in e:
+            entry['analytics_key'] = e['analytics_key']
+        out.append(entry)
     return out
