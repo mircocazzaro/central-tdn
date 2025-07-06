@@ -6,163 +6,284 @@
   {{ catalog|json_script:"catalogData" }}
 
   <div class="row main-content">
-    <!-- Left pane: Full Queries List -->
+
+    <!-- LEFT COLUMN: collapsible menus -->
     <div class="col-md-4">
-      <h4 class="mb-3">📋 Choose a Query</h4>
-      <ul id="query-list" class="list-group mb-4"></ul>
+      <!-- 1) Query menu -->
+      <details id="query-menu" class="mb-4">
+        <summary class="h5">📋 Choose a Query</summary>
+        <ul id="query-list" class="list-group mt-2"></ul>
+      </details>
+
+      <!-- 2) Run Analytics menu -->
+      <details id="analytics-menu" class="mb-4">
+        <summary class="h5">⚙️ Run Analytics</summary>
+        <ul id="analytics-list" class="list-group mt-2">
+          <li class="list-group-item analytics-item" data-query="ageDist">
+            Age Distribution of Patients
+          </li>
+          <li class="list-group-item analytics-item" data-query="klDiv">
+            KL Divergence: Bulbar vs Spinal Age-Onset
+          </li>
+        </ul>
+      </details>
+
+      <!-- 3) Train a Model menu -->
+      <details id="train-menu" class="mb-4">
+        <summary class="h5">🤖 Train a Model</summary>
+      
+        <!-- your click‐target list -->
+        <ul id="train-list" class="list-group mt-2">
+          <li class="list-group-item train-item" data-query-id="14">
+            Train Regression Tree
+          </li>
+        </ul>
+      </details>
     </div>
 
-    <!-- Right pane: Form & Results -->
+    <!-- RIGHT COLUMN: Form & Results -->
     <div class="col-md-8">
-      <div id="query-form-container" class="card shadow-sm p-4 mb-4" style="display:none;">
+
+      <!-- Query form (hidden until a query is chosen) -->
+      <div id="query-form-container"
+           class="card shadow-sm p-4 mb-4"
+           style="display:none;">
         <h5 id="query-description" class="mb-3"></h5>
         <form id="query-form">
           <div id="form-fields"></div>
-          <button type="submit" class="btn btn-primary animate__animated animate__pulse animate__infinite">🚀 Run</button>
+          <button type="submit"
+                  class="btn btn-primary animate__animated animate__pulse animate__infinite">
+            🚀 Run
+          </button>
         </form>
       </div>
+
+      <!-- Analytics form (hidden until an analytics option is chosen) -->
+      <div id="analytics-form-container"
+           class="card shadow-sm p-4 mb-4"
+           style="display:none;">
+        <h5 id="analytics-description" class="mb-3"></h5>
+        <form id="analytics-form">
+          <div id="analytics-fields"></div>
+          <button type="submit" class="btn btn-secondary">
+            📊 Show Histogram
+          </button>
+        </form>
+      </div>
+      
+     <!-- 3) Train form (hidden until you click) -->
+     <div id="train-form-container"
+          class="card shadow-sm p-4 mb-4"
+          style="display:none;">
+       <h5 class="mb-3">Train Regression Tree</h5>
+       <form id="train-form">
+         <div id="train-fields"></div>
+         <button type="submit" class="btn btn-success">
+           🚀 Train
+         </button>
+       </form>
+     </div>
+
+      <!-- Chart wrapper: responsive -->
+      <div class="chart-container mb-3" style="position:relative; width:100%; height:40vh;display:none;">
+        <canvas id="analytics-chart" style="width:100%; height:100%; display:none;"></canvas>
+      </div>
+
+      <!-- Logos of responding endpoints -->
+      <div id="analytics-contributors" class="d-flex flex-wrap align-items-center mb-4" style="display:none;"></div>
+
+
+      <!-- Results container -->
       <div id="results-container"></div>
     </div>
   </div>
 
-  <!-- Load jQuery BEFORE any $ script -->
+  
+  </div>
+
+<!-- 1) A real <script> that just contains raw JSON -->
+  <script id="questionChoices" type="application/json">
+    {{ QUESTION_CHOICES_JSON|safe }}
+  </script>
+  
+  <!-- 2) Immediately read & parse it into a JS var -->
+  <script>
+    const questionChoices =
+      JSON.parse(
+        document.getElementById('questionChoices').textContent
+      );
+    // sanity check:
+    console.log('Loaded questions:', questionChoices);
+  </script>
+
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <!-- SPA script -->
+
   <script>
-  (function() {
-    // CSRF helper
-    function getCookie(name) {
-      let cookieValue = null;
-      if (document.cookie && document.cookie !== '') {
-        document.cookie.split(';').forEach(cookie => {
-          cookie = cookie.trim();
-          if (cookie.startsWith(name + '=')) {
-            cookieValue = decodeURIComponent(cookie.slice(name.length + 1));
-          }
-        });
-      }
-      return cookieValue;
-    }
-    const csrftoken = getCookie('csrftoken');
-    $.ajaxSetup({
-      beforeSend: function(xhr, settings) {
-        if (!/^GET|HEAD|OPTIONS|TRACE$/.test(settings.type) && !this.crossDomain) {
-          xhr.setRequestHeader('X-CSRFToken', csrftoken);
+    const treeDefaults = {
+      criterion:          'squared_error',
+      splitter:           'best',
+      max_depth:          '',        // (None)
+      min_samples_split:  '2',
+      min_samples_leaf:   '1',
+      max_features:       '',        // (None)
+      random_state:       ''         // (None)
+    };
+
+    $(function() {
+      // CSRF helper (same as before)
+      function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+          document.cookie.split(';').forEach(cookie => {
+            cookie = cookie.trim();
+            if (cookie.startsWith(name + '=')) {
+              cookieValue = decodeURIComponent(cookie.slice(name.length + 1));
+            }
+          });
         }
+        return cookieValue;
       }
-    });
-
-    // Parse catalog JSON
-    const catalogData = JSON.parse(
-      document.getElementById('catalogData').textContent
-    );
-
-    // Predefined question choices
-    const questionChoices = [
-      ['<https://w3id.org/brainteaser/ontology/schema/alsfrs1>',  'I have been less alert'],
-      ['<https://w3id.org/brainteaser/ontology/schema/alsfrs2>',  'I have had difficulty paying attention for long periods of time'],
-      ['<https://w3id.org/brainteaser/ontology/schema/alsfrs3>',  'I have been unable to think clearly'],
-      ['<https://w3id.org/brainteaser/ontology/schema/alsfrs4>',  'I have been clumsy and uncoordinated'],
-      ['<https://w3id.org/brainteaser/ontology/schema/alsfrs5>',  'I have been forgetful'],
-      ['<https://w3id.org/brainteaser/ontology/schema/alsfrs6>',  'I have had to pace myself in my physical activities'],
-      ['<https://w3id.org/brainteaser/ontology/schema/alsfrs7>',  'I have been less motivated to do anything that requires physical effort'],
-      ['<https://w3id.org/brainteaser/ontology/schema/alsfrs8>',  'I have been less motivated to participate in social activities'],
-      ['<https://w3id.org/brainteaser/ontology/schema/alsfrs9>',  'I have been limited in my ability to do things away from home'],
-      ['<https://w3id.org/brainteaser/ontology/schema/alsfrs10>', 'I have trouble maintaining physical effort for long periods'],
-      ['<https://w3id.org/brainteaser/ontology/schema/alsfrs11>', 'I have had difficulty making decisions'],
-      ['<https://w3id.org/brainteaser/ontology/schema/alsfrs12>', 'I have been less motivated to do anything that requires thinking']
-    ];
-
-    const diseasesMap = [
-    ['NCIT:C34373',  'Amyotrophic Lateral Sclerosis'],
-    ['NCIT:C3243',  'Multiple Sclerosis'],
-    ['NCIT:C26845',  'Parkinson Disease'],
-  ];
-
-    // Populate full query list
-    catalogData.forEach(q => {
-      $('#query-list').append(
-        `<li class="list-group-item query-item" 
-             data-id="${q.id}" 
-             data-params='${JSON.stringify(q.params)}' 
-             data-description="${q.description}">
-           ${q.description}
-         </li>`
-      );
-    });
-
-    // Hover effect for query items
-    $(document).on('mouseenter', '.query-item', function() {
-      $(this).addClass('active');
-    }).on('mouseleave', '.query-item', function() {
-      $(this).removeClass('active');
-    });
-
-    // Build form on query click
-    $(document).on('click', '.query-item', function() {
-      // 1. Toggle the “selected” class
-      $('.query-item').removeClass('selected');
-      $(this).addClass('selected');
-      const id = $(this).data('id');
-      const params = $(this).data('params');
-      const desc = $(this).data('description');
-      $('#query-description').text(desc);
-      const $fields = $('#form-fields').empty();
-      params.forEach(p => {
-        if (p === 'disease') {
-          const opts = diseasesMap.map(([val, txt]) =>
-            `<option value="${val}">${txt}</option>`
-          ).join('');
-          $fields.append(`
-            <div class="mb-3">
-              <label class="form-label">Select Disease</label>
-              <select name="disease" class="form-select form-select-sm" required>
-                ${opts}
-              </select>
-            </div>
-          `);
-        } else if (p === 'question') {
-          const opts = questionChoices.map(([val, txt]) =>
-            `<option value="${val}">${txt}</option>`
-          ).join('');
-          $fields.append(`
-            <div class="mb-3">
-              <label class="form-label">Select ALSFRS question</label>
-              <select name="question" class="form-select form-select-sm" required>
-                ${opts}
-              </select>
-            </div>
-          `);
-        } else if (/date/i.test(p)) {
-          $fields.append(`
-            <div class="mb-3">
-              <label class="form-label text-capitalize">${p.replace('_',' ')}</label>
-              <input type="date" name="${p}" class="form-control form-control-sm" required>
-            </div>
-          `);
-        } else if (/^age/i.test(p)) {
-          $fields.append(`
-            <div class="mb-3">
-              <label class="form-label text-capitalize">${p.replace('_',' ')}</label>
-              <input type="number" name="${p}" class="form-control form-control-sm" required>
-            </div>
-          `);
-        } else {
-          $fields.append(`
-            <div class="mb-3">
-              <label class="form-label text-capitalize">${p.replace('_',' ')}</label>
-              <input type="text" name="${p}" class="form-control form-control-sm" required>
-            </div>
-          `);
+    
+      const csrftoken = getCookie('csrftoken');
+      if (!csrftoken) {
+        console.warn("No CSRF cookie found; AJAX POSTs will be rejected by Django.");
+      }
+    
+      $.ajaxSetup({
+        beforeSend: function(xhr, settings) {
+          // only send the header if we actually have a token,
+          // it's not a safe method, and it's same‐origin
+          if (
+            csrftoken &&
+            !/^GET|HEAD|OPTIONS|TRACE$/.test(settings.type) &&
+            !settings.crossDomain
+          ) {
+            xhr.setRequestHeader('X-CSRFToken', csrftoken);
+          }
         }
       });
-      $fields.append(`<input type="hidden" name="id" value="${id}">`);
-      $('#query-form-container').fadeIn();
-      $('#results-container').empty();
-    });
-
-    // AJAX form submit
+    
+      // GLOBALS
+      const diseasesMap = [
+        ['NCIT:C34373','Amyotrophic Lateral Sclerosis'],
+        ['NCIT:C3243','Multiple Sclerosis'],
+        ['NCIT:C26845','Parkinson Disease'],
+      ];
+      const treeParams = [
+        'criterion','splitter','max_depth','min_samples_split',
+        'min_samples_leaf','max_features','random_state'
+      ];
+      const analyticsDefinitions = {
+        ageDist: {
+          template: `
+    SELECT ?ageOn WHERE {
+      ?pat a bto:Patient ;
+           bto:hasDisease {disease} ;
+           bto:undergo ?ev .
+      ?ev  a bto:Onset ;
+           bto:ageOnset ?ageOn .
+    }`,
+          params: ['disease'],
+          description: 'Distribution of age at onset for DISEASE patients'
+        }
+      };
+    
+      // 1) Populate your **Queries** list
+      const catalogData = JSON.parse($('#catalogData').text());
+      catalogData.forEach(q => {
+        $('#query-list').append(`
+          <li class="list-group-item query-item"
+              data-id="${q.id}"
+              data-params='${JSON.stringify(q.params)}'
+              data-description="${q.description}">
+            ${q.description}
+          </li>
+        `);
+      });
+    
+      // 2) Query‐list hover & click (unchanged)
+      $(document)
+      .on('mouseenter', '.query-item',   e => $(e.currentTarget).addClass('active'))
+      .on('mouseleave', '.query-item',   e => $(e.currentTarget).removeClass('active'))
+      .on('click',      '.query-item', function() {
+        // Hide any analytics form/chart
+        $('#analytics-form-container, #analytics-chart, #analytics-contributors').hide();
+        $('#results-container').empty();
+  
+        // Show the query form
+        $('#query-form-container').fadeIn();
+  
+        // Build the custom form for *this* template
+        $('.query-item').removeClass('selected');
+        $(this).addClass('selected');
+        const id     = $(this).data('id');
+        const params = $(this).data('params');
+        const desc   = $(this).data('description');
+        $('#query-description').text(desc);
+  
+        const $f = $('#form-fields').empty();
+        params.forEach(p => {
+          if (p === 'disease') {
+            const opts = diseasesMap.map(([v, t]) =>
+              `<option value="${v}">${t}</option>`).join('');
+            $f.append(`
+              <div class="mb-3">
+                <label class="form-label">Select Disease</label>
+                <select name="disease" class="form-select form-select-sm" required>
+                  ${opts}
+                </select>
+              </div>
+            `);
+          }
+          else if (p === 'question') {
+            const opts = questionChoices.map(([v, t]) =>
+              `<option value="${v}">${t}</option>`).join('');
+            $f.append(`
+              <div class="mb-3">
+                <label class="form-label">Select ALSFRS question</label>
+                <select name="question" class="form-select form-select-sm" required>
+                  ${opts}
+                </select>
+              </div>
+            `);
+          }
+          else if (/date/i.test(p)) {
+            $f.append(`
+              <div class="mb-3">
+                <label class="form-label text-capitalize">${p.replace('_',' ')}</label>
+                <input type="date" name="${p}"
+                       class="form-control form-control-sm" required>
+              </div>
+            `);
+          }
+          else if (/^age/i.test(p)) {
+            $f.append(`
+              <div class="mb-3">
+                <label class="form-label text-capitalize">${p.replace('_',' ')}</label>
+                <input type="number" name="${p}"
+                       class="form-control form-control-sm" required>
+              </div>
+            `);
+          }
+          else {
+            $f.append(`
+              <div class="mb-3">
+                <label class="form-label text-capitalize">${p.replace('_',' ')}</label>
+                <input type="text" name="${p}"
+                       class="form-control form-control-sm" required>
+              </div>
+            `);
+          }
+        });
+  
+        // Always include the id
+        $f.append(`<input type="hidden" name="id" value="${id}">`);
+      });
+  
+    // 3) Query form submit (unchanged)
     $('#query-form').on('submit', function(e) {
       e.preventDefault();
       $('#results-container').html(`
@@ -172,21 +293,421 @@
         </div>
       `);
       $.post("{% url 'central_query' %}", $(this).serialize())
-        .done(html => {
-          const section = $(html).find('#results-section').html() || html;
-          $('#results-container').html(section).fadeIn(200);
+       .done(html => {
+         const sec = $(html).find('#results-section').html() || html;
+         $('#results-container').html(sec).fadeIn(200);
+       })
+       .fail(() => {
+         $('#results-container').html(`
+           <div class="alert alert-danger">❌ Query execution failed.</div>
+         `);
+       });
+    });
+    
+    // 4) Analytics click → build form for the real template from catalogData
+    $(document).on('click', '.analytics-item', function() {
+      // Hide the query pane
+      $('#query-form-container, #results-container').hide();
+
+      // Find the catalog entry whose analytics_key is "ageDist"
+      const key = $(this).data('query');
+      const entry = catalogData.find(e => e.analytics_key === key);
+      if (!entry) return alert("No analytics template found!");
+    
+      // Show the analytics form card
+      $('#analytics-form-container').fadeIn();
+      $('#analytics-chart').hide();          
+      $('.analytics-item').removeClass('selected');
+      $(this).addClass('selected');
+
+      // Set the description
+      $('#analytics-description').text(entry.description);
+
+      // Build inputs for each param
+      const $f = $('#analytics-fields').empty();
+      entry.params.forEach(p => {
+        if (p === 'disease') {
+          const opts = diseasesMap.map(([v,t])=>
+            `<option value="${v}">${t}</option>`).join('');
+          $f.append(`
+            <div class="mb-3">
+              <label class="form-label">Select Disease</label>
+              <select name="disease" class="form-select form-select-sm" required>
+                ${opts}
+              </select>
+            </div>
+          `);
+        } else if (/^age\d$/.test(p)) {
+          // numeric input for age1, age2, age3
+          $f.append(`
+            <div class="mb-3">
+              <label class="form-label text-capitalize">${p}</label>
+              <input type="number" name="${p}"
+                    class="form-control form-control-sm" required>
+            </div>
+          `);
+        }
+        $f.append(`<input type="hidden" name="id"           value="${entry.id}">`);
+        $f.append(`<input type="hidden" name="analytics"    value="true">`);
+        $f.append(`<input type="hidden" name="analyticsVar" value="${entry.analytics_var}">`);
+  
+      });
+
+      // Hidden key so the view can pick the right template
+      $f.append(`<input type="hidden" name="query_key" value="${entry.analytics_key}">`);
+    });
+
+    // 4) Click “Train Regression Tree” → show right-pane form
+    $(document).on('click', '.train-item', function() {
+      // Hide everything else on the right
+      $('#query-form-container, #analytics-form-container, #analytics-chart, #analytics-contributors, #results-container')
+        .hide();
+
+      // Highlight the menu item
+      $('.train-item').removeClass('selected');
+      $(this).addClass('selected');
+
+      // Build the form fields
+      const $fields = $('#train-fields').empty();
+      Object.entries(treeDefaults).forEach(([param, def]) => {
+        // number inputs for numeric params
+        const isNumber = /^(min|max)_samples|max_depth|random_state$/.test(param);
+        $fields.append(`
+          <div class="mb-3">
+            <label class="form-label text-capitalize">
+              ${param.replace(/_/g,' ')}
+            </label>
+            <input
+              type="${isNumber ? 'number':'text'}"
+              name="${param}"
+              class="form-control form-control-sm"
+              value="${def}"
+            >
+          </div>
+        `);
+      });
+      $fields.append(`
+        <div class="mb-3">
+          <label class="form-label">Select Disease</label>
+          <select name="disease" class="form-select form-select-sm" required>
+            ${diseasesMap.map(([v,t]) =>
+              `<option value="${v}">${t}</option>`
+            ).join('')}
+          </select>
+        </div>
+      `);
+
+      // always include the query id
+      $fields.append(
+        `<input type="hidden" name="id" value="${$(this).data('query-id')}">`
+      );
+
+      // Show the train-form container
+      $('#train-form-container').fadeIn();
+    });
+
+    // 5) Submit training → AJAX
+    $(document).on('submit', '#train-form', function(e) {
+      e.preventDefault();
+      $('#results-container').html(`
+        <div class="text-center py-5">
+          <div class="spinner-border text-success" role="status"></div>
+          <div>Training model…</div>
+        </div>
+      `).show();
+
+      $.ajax({
+        url: "{% url 'train_model' %}",
+        method: "POST",
+        data: $(this).serialize(),
+        dataType: "json"
+      })
+      .done(renderTrainResults)
+      .fail(() => {
+        $('#results-container').html(`
+          <div class="alert alert-danger">❌ Model training failed.</div>
+        `);
+      });
+    });
+
+    function renderTrainResults(json) {
+      const $out = $('#results-container').empty();
+
+      // Metrics table
+      const rows = Object.entries(json.metrics)
+        .map(([k,v]) => `<tr><th>${k}</th><td>${v.toFixed(4)}</td></tr>`)
+        .join('');
+      $out.append(`
+        <h5>Model performance</h5>
+        <table class="table table-sm mb-4">
+          <thead><tr><th>Metric</th><th>Value</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `);
+
+      // Tree diagram
+      if (json.tree_png) {
+        $out.append(`
+          <h5>Tree structure</h5>
+          <img src="data:image/png;base64,${json.tree_png}"
+              class="img-fluid border rounded mb-4" />
+        `);
+      }
+
+      // Manual‐prediction form
+      $out.append(`
+        <h5>Predict on new sample</h5>
+        <form id="predict-form" class="row g-3">
+          <div class="col-sm-4">
+            <label class="form-label">Event Type</label>
+            <input name="evType" class="form-control form-control-sm" required>
+          </div>
+          <div class="col-sm-4">
+            <label class="form-label">Sex</label>
+            <select name="sex" class="form-select form-select-sm" required>
+              <option>Male</option>
+              <option>Female</option>
+            </select>
+          </div>
+          <div class="col-sm-4">
+            <label class="form-label">Endpoint</label>
+            <input name="endpoint" class="form-control form-control-sm" required>
+          </div>
+          <input type="hidden" name="model_id" value="${json.model_id}">
+          <div class="col-12">
+            <button class="btn btn-primary">Predict Age</button>
+          </div>
+        </form>
+        <div id="prediction-result" class="mt-3"></div>
+      `);
+    }
+
+    // 6) Handle manual‐prediction
+    $(document).on('submit', '#predict-form', function(e) {
+      e.preventDefault();
+      $.post("{% url 'predict_model' %}", $(this).serialize())
+        .done(json => {
+          $('#prediction-result').html(`
+            <div class="alert alert-info">
+              Predicted age-onset: <strong>${json.predicted.toFixed(2)}</strong>
+            </div>
+          `);
         })
         .fail(() => {
-          $('#results-container').html(`
-            <div class="alert alert-danger">❌ Query execution failed.</div>
+          $('#prediction-result').html(`
+            <div class="alert alert-danger">❌ Prediction failed.</div>
           `);
         });
     });
-    $('#query-form-container').fadeIn();
-    $('#results-container').empty();
-  })();
-  </script>
 
+    
+     // 5) Analytics form submit → histogram + contributors
+     $('#analytics-form').on('submit', function(e) {
+      e.preventDefault();
+      $('#results-container').html(`
+        <div class="text-center py-5">
+          <div class="spinner-border text-secondary" role="status"></div>
+          <div>Running analytics…</div>
+        </div>
+      `);
+        
+      $.ajax({
+        url: "{% url 'run_analytics' %}",
+        method: "POST",
+        data:   $(this).serialize(),
+        dataType: "json"
+      })
+      .done(function(json) {
+        // 1) Clear out any old chart or logos, and make sure the results panel is visible
+        $('.chart-container').hide();
+        $('#analytics-chart').hide();
+        $('#analytics-contributors').hide();
+        const $out = $('#results-container').empty().show();
+      
+        // 2) KL-Divergence branch
+        if (json.kl_divergence !== undefined) {
+          // Title + badge
+          $out.append('<h5>KL Divergence Analysis</h5>');
+          $out.append(`
+            <span class="badge bg-info mb-3">
+              D(P‖Q) = ${json.kl_divergence.toFixed(4)}
+            </span>
+          `);
+      
+          // Container for the two charts
+          const $row = $('<div class="d-flex flex-wrap"></div>');
+          ['true','false'].forEach(flag => {
+            const label = flag === 'true' ? 'Bulbar Onset' : 'Spinal Onset';
+            const distKey = flag === 'true' ? 'distribution_true' : 'distribution_false';
+            const dist    = json[distKey] || [];
+      
+            // Column wrapper
+            const $col = $(`
+              <div class="p-2" style="min-width:300px;">
+                <h6>${label}</h6>
+                <canvas width="300" height="200"></canvas>
+              </div>
+            `);
+            const ctx = $col.find('canvas')[0].getContext('2d');
+      
+            if (dist.length) {
+              new Chart(ctx, {
+                type: 'bar',
+                data: {
+                  labels: dist.map(d => d.range),
+                  datasets: [{ label: 'P(age)', data: dist.map(d => d.p) }]
+                },
+                options: {
+                  responsive: false,
+                  maintainAspectRatio: false,
+                  scales: {
+                    x: { title: { display: true, text: 'Age range' } },
+                    y: { title: { display: true, text: 'Probability' } }
+                  },
+                  plugins: { legend: { display: false } }
+                }
+              });
+            } else {
+              $col.append('<p class="text-muted">No data</p>');
+            }
+      
+            $row.append($col);
+          });
+      
+          $out.append($row);
+      
+          // Show contributor logos underneath
+          renderContributors(
+            (json.responders || []).map(r => r.name || r),
+            json.failed || []
+          );
+      
+          return;  // done with KL branch
+        }
+      
+        // 3) FALLBACK: your existing ageDist histogram
+        // merge buckets by label
+        const agg = {};
+        (json.results || []).forEach(r => {
+          const b = r.bracket;
+          const c = parseInt(r.n, 10) || 0;
+          agg[b] = (agg[b] || 0) + c;
+        });
+        const buckets = Object.keys(agg)
+          .sort((a, b) => {
+            const extract = s => parseInt(s.replace(/[^\d].*$/,''), 10) || 0;
+            return extract(a) - extract(b);
+          })
+          .map(label => ({ bucket: label, count: agg[label] }));
+      
+        if (!buckets.length) {
+          return alert("No data to plot.");
+        }
+      
+        // render Chart.js bar
+        const labels = buckets.map(d => d.bucket);
+        const counts = buckets.map(d => d.count);
+        const ctx    = $('#analytics-chart')[0].getContext('2d');
+        if (window.analyticsChart) window.analyticsChart.destroy();
+        window.analyticsChart = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [{ label: 'Count', data: counts }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: { title: { display: true, text: 'Age Bracket' } },
+              y: { title: { display: true, text: '# Patients' } }
+            }
+          }
+        });
+
+        $('.chart-container').show();
+        $('#analytics-chart').show();
+      
+        // show endpoint logos
+        const $ctr = $('#analytics-contributors').empty().show();
+        (json.responders || []).forEach(ep => {
+          $ctr.append(`
+            <img src="${ep.logo_url}"
+                 alt="${ep.name}"
+                 title="${ep.name}"
+                 class="me-2 mb-2"
+                 style="height:32px; object-fit:contain;" />
+          `);
+        });
+      })
+      .fail(function() {
+        $('#results-container').html(`
+          <div class="alert alert-danger">❌ Analytics query failed.</div>
+        `);
+      });      
+    });
+
+    // 6) Histogram renderer – handles both “buckets” and raw “ages”
+    let analyticsChart = null;
+    function renderHistogram(data) {
+      // If data is an array of {bucket, count}, unpack directly
+      let labels, counts;
+
+      if (data.length > 0 && typeof data[0] === 'object' && data[0].bucket !== undefined) {
+        labels = data.map(d => d.bucket);
+        counts = data.map(d => d.count);
+
+      } else {
+        // Otherwise assume it’s a plain array of ages
+        const ages = data.map(a => parseInt(a, 10)).filter(n => !isNaN(n));
+        if (!ages.length) {
+          return alert("No data to plot.");
+        }
+
+        const min = Math.min(...ages), max = Math.max(...ages);
+        const bins = 10, size = Math.ceil((max - min)/bins);
+        labels = Array.from({length: bins}, (_, i) => {
+          const start = min + i*size, end = start + size - 1;
+          return `${start}–${end}`;
+        });
+        counts = Array(bins).fill(0);
+        ages.forEach(n => {
+          const idx = Math.min(bins - 1, Math.floor((n - min)/size));
+          counts[idx]++;
+        });
+      }
+
+      // Draw chart
+      const ctx = document.getElementById('analytics-chart').getContext('2d');
+      if (analyticsChart) analyticsChart.destroy();
+      analyticsChart = new Chart(ctx, {
+        type: 'bar',
+        data: { labels, datasets: [{ label: 'Count', data: counts }] },
+        options: {
+          scales: {
+            x: { title: { display: true, text: 'Age Bracket' } },
+            y: { title: { display: true, text: '# Patients' } }
+          }
+        }
+      });
+      $('.chart-container').show();
+      $('#analytics-chart').show();
+    }
+
+    // 7) Contributors renderer (unchanged)
+    function renderContributors(responders, failed) {
+      const $ctr = $('#analytics-contributors').empty().show();
+      if (responders.length) {
+        $ctr.append(`<div>✅ Responded: ${responders.join(', ')}</div>`);
+      }
+      if (failed.length) {
+        $ctr.append(`<div>❌ No response: ${failed.join(', ')}</div>`);
+      }
+    }
+
+    });
+    </script>
+    
   <!-- Styles & Animations -->
   <style>
     .query-item {
@@ -252,6 +773,32 @@
       opacity: 1;
     }
 
+    .analytics-item {
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    .analytics-item:hover,
+    .analytics-item.selected {
+      background-color: #e3f2fd;
+      transform: scale(1.02);
+    }
+
+    #analytics-contributors img {
+      transition: transform .2s;
+    }
+    #analytics-contributors img:hover {
+      transform: scale(1.1);
+    }
+
+    .train-item {
+      cursor: pointer;
+      transition: background-color 0.2s, transform 0.2s;
+    }
+    .train-item:hover,
+    .train-item.selected {
+      background-color: #e3f2fd;  /* light blue */
+      transform: scale(1.02);
+    }
   </style>
 {% endblock %}
 

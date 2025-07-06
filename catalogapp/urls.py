@@ -9,4 +9,7 @@ urlpatterns = [
     path('manager/add/',        views.endpoint_add,     name='endpoint_add'),
     path('manager/<int:pk>/edit/',   views.endpoint_edit,    name='endpoint_edit'),
     path('manager/<int:pk>/delete/', views.endpoint_delete,  name='endpoint_delete'),
+    path('run_analytics/', views.run_analytics, name='run_analytics'),
+    path('train-model/', views.train_model, name='train_model'),
+    path('predict-model/', views.predict_model, name='predict_model'),
 ]
