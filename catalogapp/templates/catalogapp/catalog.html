@@ -146,12 +146,12 @@
         }
         return cookieValue;
       }
-    
+      
       const csrftoken = getCookie('csrftoken');
       if (!csrftoken) {
         console.warn("No CSRF cookie found; AJAX POSTs will be rejected by Django.");
       }
-    
+      
       $.ajaxSetup({
         beforeSend: function(xhr, settings) {
           // only send the header if we actually have a token,
@@ -165,7 +165,7 @@
           }
         }
       });
-    
+      
       // GLOBALS
       const diseasesMap = [
         ['NCIT:C34373','Amyotrophic Lateral Sclerosis'],
@@ -190,7 +190,7 @@
           description: 'Distribution of age at onset for DISEASE patients'
         }
       };
-    
+
       // 1) Populate your **Queries** list
       const catalogData = JSON.parse($('#catalogData').text());
       catalogData.forEach(q => {
@@ -525,65 +525,41 @@
         const $out = $('#results-container').empty().show();
       
         // 2) KL-Divergence branch
-        if (json.kl_divergence !== undefined) {
-          // Title + badge
-          $out.append('<h5>KL Divergence Analysis</h5>');
+        // 2) KL-Divergence branch (endpoint-computed)
+        if (Array.isArray(json.results) &&
+          json.results.length > 0 &&
+          json.results[0].kl_divergence !== undefined) {
+
+          const $out = $('#results-container').empty();
+          $out.append('<h5>Endpoint KL Divergence</h5>');
+
+          // Build table rows
+          const rows = json.results.map(r =>
+          `<tr>
+            <td>${r.endpoint}</td>
+            <td>${r.kl_divergence !== null
+                  ? r.kl_divergence.toFixed(4)
+                  : 'N/A'}</td>
+          </tr>`
+          ).join('');
+
+          // Inject table
           $out.append(`
-            <span class="badge bg-info mb-3">
-              D(P‖Q) = ${json.kl_divergence.toFixed(4)}
-            </span>
+          <table class="table table-striped mb-4">
+            <thead><tr><th>Endpoint</th><th>KL Divergence</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
           `);
-      
-          // Container for the two charts
-          const $row = $('<div class="d-flex flex-wrap"></div>');
-          ['true','false'].forEach(flag => {
-            const label = flag === 'true' ? 'Bulbar Onset' : 'Spinal Onset';
-            const distKey = flag === 'true' ? 'distribution_true' : 'distribution_false';
-            const dist    = json[distKey] || [];
-      
-            // Column wrapper
-            const $col = $(`
-              <div class="p-2" style="min-width:300px;">
-                <h6>${label}</h6>
-                <canvas width="300" height="200"></canvas>
-              </div>
-            `);
-            const ctx = $col.find('canvas')[0].getContext('2d');
-      
-            if (dist.length) {
-              new Chart(ctx, {
-                type: 'bar',
-                data: {
-                  labels: dist.map(d => d.range),
-                  datasets: [{ label: 'P(age)', data: dist.map(d => d.p) }]
-                },
-                options: {
-                  responsive: false,
-                  maintainAspectRatio: false,
-                  scales: {
-                    x: { title: { display: true, text: 'Age range' } },
-                    y: { title: { display: true, text: 'Probability' } }
-                  },
-                  plugins: { legend: { display: false } }
-                }
-              });
-            } else {
-              $col.append('<p class="text-muted">No data</p>');
-            }
-      
-            $row.append($col);
-          });
-      
-          $out.append($row);
-      
-          // Show contributor logos underneath
+
+          // Show which endpoints responded / failed
           renderContributors(
-            (json.responders || []).map(r => r.name || r),
-            json.failed || []
+          (json.responders || []).map(r => r.name || r),
+          json.failed || []
           );
-      
-          return;  // done with KL branch
-        }
+
+          return;  // skip the fallback histogram
+          }
+
       
         // 3) FALLBACK: your existing ageDist histogram
         // merge buckets by label

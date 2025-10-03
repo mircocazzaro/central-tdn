@@ -300,7 +300,91 @@ def query_view(request):
     
 
         
+@login_required
 def run_analytics(request):
+    key = request.POST.get('query_key')
+    entries = catalog()
+    entry = next((e for e in entries if e.get('analytics_key') == key), None)
+    if not entry:
+        return JsonResponse({'results': [], 'responders': [], 'failed': []})
+
+    # 1) Build SPARQL string
+    q = prefixes + entry['template']
+    for param in entry['params']:
+        v = request.POST.get(param) or ''
+        q = q.replace(f'{{{param}}}', v)
+    masked_template = entry['template'].replace('<{', '**<').replace('}>', '>**')
+
+    # 2) If KL-divergence, delegate to each endpoint
+    if key == 'klDiv':
+        results = []
+        responders = []
+        failed = []
+        for ep in Endpoint.objects.all():
+            url = ep.url.rstrip('/') + '/sparql-protected/'
+            try:
+                resp = requests.post(
+                    url,
+                    data=urllib.parse.urlencode({
+                        'template':     masked_template,
+                        'query':        q,
+                        'analytics_key': key,
+                    }, quote_via=urllib.parse.quote, safe=''),
+                    headers={
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8'
+                    },
+                    timeout=5
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                results.append({'endpoint': ep.name, 'kl_divergence': data.get('kl_divergence')})
+                responders.append({'name': ep.name, 'logo_url': ep.logo.url})
+            except Exception:
+                failed.append(ep.name)
+        return JsonResponse({'results': results, 'responders': responders, 'failed': failed})
+
+    # 3) Fallback: ageDist local aggregation
+    raw_bindings = []
+    responders = []
+    failed = []
+    for ep in Endpoint.objects.all():
+        url = ep.url.rstrip('/') + '/sparql-protected/'
+        try:
+            resp = requests.post(
+                url,
+                data=urllib.parse.urlencode({
+                    'template': masked_template,
+                    'query':    q,
+                }, quote_via=urllib.parse.quote, safe=''),
+                headers={
+                    'Accept': 'application/sparql-results+json',
+                    'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8'
+                },
+                timeout=5
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            bds = data.get('results', {}).get('bindings', []) or data.get('results') if isinstance(data.get('results'), list) else []
+            for bd in bds:
+                def norm(k):
+                    v = bd.get(k)
+                    return (isinstance(v, dict) and v.get('value')) or v
+                raw_bindings.append({
+                    'bracket':  norm('bracket'),
+                    'n':        norm('n')
+                })
+            responders.append({'name': ep.name, 'logo_url': ep.logo.url})
+        except Exception:
+            failed.append(ep.name)
+    agg = {}
+    for r in raw_bindings:
+        b = r.get('bracket')
+        c = int(r.get('n') or 0)
+        agg[b] = agg.get(b, 0) + c
+    results = [{'bracket': label, 'n': agg[label]} for label in sorted(agg.keys(), key=lambda s: int(''.join(filter(str.isdigit, s)) or 0))]
+    return JsonResponse({'results': results, 'responders': responders, 'failed': failed})
+
     """
     Run the same fan-out SPARQL logic as in query_view, but return
     either:
