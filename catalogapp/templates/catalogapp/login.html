@@ -1,0 +1,63 @@
+{% extends 'catalogapp/base.html' %}
+{% load static %}
+
+{% block content %}
+<!-- full-height gradient background matching your navbar -->
+ <style>
+  body {
+    background: linear-gradient(
+                to right,
+                 #1B2565, #00c0ff
+            ) !important; 
+  }
+ </style>
+<div class=" d-flex align-items-center justify-content-center"
+     style="height:60vh !important;">
+
+  <!-- white card centered in the viewport -->
+  <div class="card p-4 shadow" style="max-width: 400px; width: 100%;">
+    <!-- logo -->
+    <div class="text-center mb-4">
+      <img src="{% static 'catalogapp/logo.png' %}"
+           alt="Logo"
+           height="120">
+    </div>
+
+    <!-- optional alert for messages -->
+    {% if form.errors %}
+      <div class="alert alert-danger">
+        Please correct the errors below.
+      </div>
+    {% endif %}
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+    
+      <div class="mb-3 row">
+        <label for="{{ form.username.id_for_label }}" class="col-sm-4 col-form-label" style="padding: 0; text-align:right;">
+          Username
+        </label>
+        <div class="col-sm-8">
+          {{ form.username }}
+          {{ form.username.errors }}
+        </div>
+      </div>
+    
+      <div class="mb-3 row">
+        <label for="{{ form.password.id_for_label }}" class="col-sm-4 col-form-label" style="padding: 0; text-align:right;">
+          Password
+        </label>
+        <div class="col-sm-8">
+          {{ form.password }}
+          {{ form.password.errors }}
+        </div>
+      </div>
+    
+      <button type="submit" class="btn btn-primary w-100">
+        Log in
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock %}

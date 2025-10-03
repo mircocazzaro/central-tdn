@@ -72,3 +72,13 @@ ENDPOINT_MANAGER_PASSWORD = 'supersecret'
 STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]
+
+# Redirect here after a successful login
+LOGIN_REDIRECT_URL = '/catalog/'  
+# If someone hits @login_required they go here
+LOGIN_URL = '/login/'        
+
+# Make sessions expire after, say, 1 hour (3600s)
+SESSION_COOKIE_AGE = 3600        # seconds
+# (Optional) refresh expiry on every request
+SESSION_SAVE_EVERY_REQUEST = True
