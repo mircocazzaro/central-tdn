@@ -15,6 +15,7 @@ from math import log
 
 from .queries              import catalog
 from .models               import Endpoint
+from .dispatch             import dispatch
 from .forms                import QueryForm, EndpointForm
 from .forms import QUESTION_CHOICES
 import base64
@@ -214,73 +215,45 @@ def query_view(request):
             # Mask out the original template markers so they don’t get sent along
             entry['template'] = entry['template'].replace('<{', '**<').replace('}>', '>**')
             results = []
+            responders = []
+            answered, failed = dispatch({
+                'template': entry['template'],
+                'query':    q,
+            })
 
-            for ep in Endpoint.objects.all():
-                url = ep.url.rstrip('/') + '/sparql-protected/'
-
-                try:
-                    resp = requests.post(
-                        url,
-                        data=urllib.parse.urlencode({
-                            'template': entry['template'],
-                            'query':    q,
-                        }, quote_via=urllib.parse.quote, safe=''),
-                        headers={
-                            'Accept': 'application/sparql-results+json',
-                            'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8'
-                        },
-                        timeout=5
-                    )
-                    # Raise an exception if status is 4xx/5xx
-                    resp.raise_for_status()
-
-                    data = resp.json()
-
-                    # Handle ASK, SELECT, or empty/unauthorized cases
-                    if 'boolean' in data:
-                        results.append({
-                            'endpoint': ep.name,
-                            'logo_url': ep.logo_url,
-                            'boolean':  data['boolean']
-                        })
-
-                    elif 'head' in data and 'results' in data:
-                        head = data['head']['vars']
-                        for bd in data['results']['bindings']:
-                            row = {}
-                            for v in head:
-                                # only pull bd[v]['value'] if it exists
-                                if v in bd:
-                                    row[v] = bd[v]['value']
-                                else:
-                                    row[v] = None
-                            row['endpoint'] = ep.name
-                            row['logo_url']  = ep.logo_url
-                            results.append(row)
-
-                    elif 'results' in data:
-                        # Known template but no results (or unauthorized)
-                        results.append({
-                            'endpoint': ep.name,
-                            'logo_url': ep.logo_url,
-                            'rows':     []
-                        })
-
-                    else:
-                        # Unexpected JSON shape
-                        results.append({
-                            'endpoint': ep.name,
-                            'logo_url': ep.logo_url,
-                            'error':    'Invalid response'
-                        })
-
-                except requests.RequestException:
-                    # If anything goes wrong (timeout, HTTP error, connection error),
-                    # just skip this endpoint.
+            for ep, data in answered:
+                if not isinstance(data, dict):
+                    failed.append(ep)
                     continue
+                if 'boolean' in data:
+                    results.append({
+                        'endpoint': ep.name,
+                        'logo_url': ep.logo_url,
+                        'boolean':  data['boolean']
+                    })
+                    n_rows = 1
+                elif isinstance(data.get('results'), dict):
+                    # An endpoint that declines to contribute answers with an
+                    # empty result: it still counts as a responder.
+                    head = data.get('head', {}).get('vars', [])
+                    bindings = data['results'].get('bindings', [])
+                    for bd in bindings:
+                        row = {v: bd[v]['value'] if v in bd else None for v in head}
+                        row['endpoint'] = ep.name
+                        row['logo_url'] = ep.logo_url
+                        results.append(row)
+                    n_rows = len(bindings)
+                else:
+                    failed.append(ep)
+                    continue
+                responders.append({'name': ep.name, 'logo_url': ep.logo_url, 'rows': n_rows})
+
             return render(request, 'catalogapp/results.html', {
-                'query':   q,
-                'results': results
+                'query':      q,
+                'results':    results,
+                'responders': responders,
+                'failed':     [ep.name for ep in failed],
+                'total':      len(responders) + len(failed),
             })
 
     # 3) Otherwise (GET) just show the form
@@ -317,52 +290,30 @@ def run_analytics(request):
     if key == 'klDiv':
         results = []
         responders = []
-        failed = []
-        for ep in Endpoint.objects.all():
-            url = ep.url.rstrip('/') + '/sparql-protected/'
-            try:
-                resp = requests.post(
-                    url,
-                    data=urllib.parse.urlencode({
-                        'template':     masked_template,
-                        'query':        q,
-                        'analytics_key': key,
-                    }, quote_via=urllib.parse.quote, safe=''),
-                    headers={
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8'
-                    },
-                    timeout=5
-                )
-                resp.raise_for_status()
-                data = resp.json()
-                results.append({'endpoint': ep.name, 'kl_divergence': data.get('kl_divergence')})
-                responders.append({'name': ep.name, 'logo_url': ep.logo_url})
-            except Exception:
+        answered, down = dispatch({
+            'template':     masked_template,
+            'query':        q,
+            'analytics_key': key,
+        }, accept='application/json')
+        failed = [ep.name for ep in down]
+        for ep, data in answered:
+            if not isinstance(data, dict):
                 failed.append(ep.name)
+                continue
+            results.append({'endpoint': ep.name, 'kl_divergence': data.get('kl_divergence')})
+            responders.append({'name': ep.name, 'logo_url': ep.logo_url})
         return JsonResponse({'results': results, 'responders': responders, 'failed': failed})
 
     # 3) Fallback: ageDist local aggregation
     raw_bindings = []
     responders = []
-    failed = []
-    for ep in Endpoint.objects.all():
-        url = ep.url.rstrip('/') + '/sparql-protected/'
+    answered, down = dispatch({
+        'template': masked_template,
+        'query':    q,
+    })
+    failed = [ep.name for ep in down]
+    for ep, data in answered:
         try:
-            resp = requests.post(
-                url,
-                data=urllib.parse.urlencode({
-                    'template': masked_template,
-                    'query':    q,
-                }, quote_via=urllib.parse.quote, safe=''),
-                headers={
-                    'Accept': 'application/sparql-results+json',
-                    'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8'
-                },
-                timeout=5
-            )
-            resp.raise_for_status()
-            data = resp.json()
             bds = data.get('results', {}).get('bindings', []) or data.get('results') if isinstance(data.get('results'), list) else []
             for bd in bds:
                 def norm(k):
