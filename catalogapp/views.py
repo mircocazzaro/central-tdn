@@ -1,5 +1,4 @@
 # catalogapp/views.py
-import duckdb
 import requests
 from urllib.parse import urlparse, urljoin
 import urllib.parse
@@ -7,7 +6,6 @@ from django.shortcuts      import render, redirect, get_object_or_404
 from django.conf           import settings
 from django.contrib        import messages
 from django.views.decorators.http import require_http_methods
-from requests_toolbelt.utils import dump
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 import json

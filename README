@@ -1,144 +1,39 @@
-# TDN Central
+# HDN Central
 
-A Django-based federated SPARQL query interface and endpoint manager.
-Users can register multiple SPARQL endpoints, define and run parameterized query templates across all endpoints, and view combined results in a single UI.
-
----
-
-## Features
-
-* **Endpoint Catalog**
-
-  * Register SPARQL endpoints with name, URL, and optional logo
-  * Browse and manage endpoints (add, edit, delete)
-
-* **Query Templates**
-
-  * Predefined SPARQL templates with placeholders (e.g., `{disease}`)
-  * Metadata for each template (description, parameter list, security level)
-  * Stored as Python constants in `catalogapp/queries.py`
-
-* **Federated Query Execution**
-
-  * Execute ASK or SELECT templates against all registered endpoints
-  * Collect and display results in a unified table
-  * Visual indicators for boolean ASK responses and tabular SELECT results
-
-* **Media & Static Assets**
-
-  * Logo uploads stored under `media/endpoint_logos/`
-  * Static files (CSS, JS, icons) served via Django staticfiles
-
----
-
-## Requirements
-
-* Python 3.9+
-* Django ≥ 5.2
-* duckdb (Python package)
-* requests
-* requests-toolbelt (for HTTP dump and debugging)
-
-> Note: Although `duckdb` is listed, the current version stores allowed queries in a DuckDB file (`data/allowed_queries.duckdb`) but does not yet query it directly.
-
----
+Django web app that dispatches catalog SPARQL queries to the registered
+HDN endpoints (`tdn-endpoint`) and merges the answers.
 
 ## Installation
 
-1. **Extract the project**
+Requires Python 3.10+.
 
-   ```bash
-   unzip central.zip -d central
-   cd central/central
-   ```
-
-2. **Install dependencies**
-
-   ```bash
-   pip install Django>=5.2 duckdb requests requests-toolbelt
-   ```
-
-3. **Apply migrations**
-
-   ```bash
-   python manage.py migrate
-   ```
-
-4. **Collect static files**
-
-   ```bash
-   python manage.py collectstatic
-   ```
-
----
-
-## Configuration
-
-All settings live in `centralproject/settings.py`:
-
-* **SECRET\_KEY** – provided via environment or default `unsafe-dev-key`; change for production
-* **DEBUG** – currently `True`; set to `False` in production
-* **ALLOWED\_HOSTS** – default `['*']`; restrict in production
-* **MEDIA\_ROOT** & **MEDIA\_URL** – where endpoint logos are stored and served
-* **STATICFILES\_DIRS** – include `static/` for project-wide assets
-* **ENDPOINT\_MANAGER\_PASSWORD** – simple password for manager views; override via env var
-
-You can customize:
-
-* Database (default SQLite) in `DATABASES['default']`
-* Static and media URL paths
-
----
-
-## Usage
-
-1. **Run the server**
-
-   ```bash
-   python manage.py runserver
-   ```
-
-2. **Access the app**
-
-   * Home & endpoint catalog: `http://127.0.0.1:8000/`
-   * Query interface: click a template and fill parameters
-   * Endpoint manager: `http://127.0.0.1:8000/catalog/manager/` (password-protected)
-
-3. **Endpoint API**
-
-   * Endpoints CRUD via Django admin or manager views
-   * Query execution is internal via `requests.post` to each endpoint’s SPARQL HTTP API
-
----
-
-## Code Structure
-
-```
-central/                  # Django project root
-├── centralproject/       # Project settings and URL config
-│   ├── settings.py
-│   ├── urls.py
-│   └── wsgi.py
-├── catalogapp/           # Core application
-│   ├── models.py         # Endpoint model
-│   ├── forms.py          # EndpointForm & QueryForm
-│   ├── queries.py        # SPARQL templates registry
-│   ├── views.py          # Catalog, query, and manager views
-│   └── urls.py           # URL patterns for catalogapp
-├── media/                # Uploaded endpoint logos
-└── static/               # Project static assets
+```bash
+git clone https://github.com/mircocazzaro/central-tdn.git
+cd central-tdn
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py createsuperuser      # account used to log in to the catalog
+python manage.py runserver 0.0.0.0:8000
 ```
 
----
+Open `http://<host>:8000/` and log in with the account you just created.
 
-## Extending
+## Registering endpoints
 
-* **Add new query templates**: modify `RAW_TEMPLATES` in `catalogapp/queries.py` with `level`, `template`, `params`, and `description`.
-* **Custom authentication**: replace simple manager password with Django’s auth system.
-* **Result caching**: integrate DuckDB or Redis to cache frequent queries.
+Go to **Endpoints** in the navbar (manager password: `ENDPOINT_MANAGER_PASSWORD`
+in `centralproject/settings.py`) and add each node with its base URL,
+e.g. `http://tdn.example.org/api0`. Central posts queries to
+`<base URL>/sparql-protected/`. The logo is optional.
 
----
+## Layout
 
-## License
-
-Specify a license (e.g., MIT) by adding a `LICENSE` file and updating this section.
+```
+centralproject/   settings, root URLs
+catalogapp/
+  queries.py      query catalog (must match the endpoints' catalog)
+  forms.py        parameter forms and allowed values
+  views.py        catalog, dispatch, analytics, endpoint manager
+  templates/      UI
+```
