@@ -27,6 +27,15 @@
               Catalog
             </a>
           </li>
+          {% if user.is_authenticated %}
+          <li class="nav-item">
+            {# LogoutView only accepts POST since Django 5 #}
+            <form method="post" action="{% url 'logout' %}" class="d-inline">
+              {% csrf_token %}
+              <button type="submit" class="nav-link btn btn-link">Logout ({{ user.get_username }})</button>
+            </form>
+          </li>
+          {% endif %}
         </ul>
       </div>
     </div>
