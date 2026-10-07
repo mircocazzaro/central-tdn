@@ -47,14 +47,6 @@ WSGI_APPLICATION = 'centralproject.wsgi.application'
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-MEDIA_ROOT = BASE_DIR / 'data'
-os.makedirs(MEDIA_ROOT, exist_ok=True)
-
-# Path to your catalog of allowed SPARQL templates (create via your existing node)
-ALLOWED_DB   = os.path.join(MEDIA_ROOT, 'allowed_queries.duckdb')
-# Central’s own endpoints list
-ENDPOINTS_DB = os.path.join(MEDIA_ROOT, 'endpoints.duckdb')
-
 
 DATABASES = {
     'default': {
