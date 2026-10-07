@@ -4,6 +4,7 @@ RAW_TEMPLATES = [
     # Level 0
     {
       'level': 0,
+      'key': 'q00_L0',
       'template': '''ASK WHERE {
   ?pat a bto:Patient ;
        bto:hasDisease  {disease} .
@@ -13,6 +14,7 @@ RAW_TEMPLATES = [
     },
     {
       'level': 0,
+      'key': 'q01_L0',
       'template': '''ASK WHERE {
   ?pat a bto:Patient ;
        bto:hasDisease {disease} ;
@@ -27,6 +29,7 @@ RAW_TEMPLATES = [
     # Level 1
     {
       'level': 1,
+      'key': 'q02_L1',
       'template': '''SELECT (COUNT(DISTINCT ?pat) AS ?nDISEASE) WHERE {
   ?pat a bto:Patient ;
        bto:hasDisease {disease} .
@@ -36,6 +39,7 @@ RAW_TEMPLATES = [
     },
     {
       'level': 1,
+      'key': 'q03_L1',
       'template': '''SELECT (COUNT(DISTINCT ?pat) AS ?nSex) WHERE {
   ?pat a bto:Patient ;
        bto:hasDisease {disease} ;
@@ -47,6 +51,7 @@ RAW_TEMPLATES = [
     # Level 2
     {
       'level': 2,
+      'key': 'q04_L2',
       'template': '''SELECT (AVG(?aO) AS ?avgAge) WHERE {
   ?pat a bto:Patient ;
        bto:hasDisease {disease} ;
@@ -59,6 +64,7 @@ RAW_TEMPLATES = [
     },
     {
       'level': 2,
+      'key': 'q05_L2',
       'template': '''SELECT (AVG(xsd:integer(?diff)) AS ?medianSurvivalDays) WHERE {
   ?pat a bto:Patient ;
        bto:hasDisease {disease} ;
@@ -75,6 +81,7 @@ RAW_TEMPLATES = [
     # Level 3
     {
       'level': 3,
+      'key': 'q06_L3',
       'template': '''SELECT ?site (AVG(?ageOn) AS ?avgOnsetAge) 
 WHERE {
   ?pat a bto:Patient ;
@@ -91,6 +98,7 @@ GROUP BY ?site''',
     },
     { 
       'level': 3,
+      'key': 'q07_L3',
       'analytics_key': 'ageDist',
       'template': '''SELECT ?bracket ?n WHERE {
 SELECT ?bracket (AVG(?ageOn) AS ?avgAgeOn) (COUNT(DISTINCT ?pat) AS ?n) WHERE {
@@ -113,6 +121,7 @@ ORDER BY ?avgAgeOn
     },
     {
         'level': 3,
+        'key': 'q08_L3',
         'template': '''SELECT ?question ?avgq ?grad WHERE {
   {
     SELECT ?question (AVG(?q) AS ?avgq) 
@@ -160,6 +169,7 @@ ORDER BY ?avgAgeOn
     # Level 4
     {
       'level': 4,
+      'key': 'q09_L4',
       'template': '''SELECT ?ageOn ?sex WHERE {
   ?pat a bto:Patient ;
        bto:hasDisease {disease} ;
@@ -173,6 +183,7 @@ ORDER BY ?avgAgeOn
     },
     {
       'level': 4,
+      'key': 'q10_L4',
       'template': '''SELECT ?onsetTypes (COUNT(DISTINCT ?pat) AS ?n) WHERE {
   ?pat a bto:Patient ;
        bto:hasDisease {disease} ;
@@ -199,6 +210,7 @@ GROUP BY ?onsetTypes''',
     # Level 5
     {
       'level': 5,
+      'key': 'q11_L5',
       'template': '''SELECT (MD5(STR(?pat)) AS ?anonID) ?ageOn ?b WHERE {
   ?pat a bto:Patient ;
        bto:hasDisease  {disease} ;
@@ -213,6 +225,7 @@ GROUP BY ?onsetTypes''',
     },
     {
       'level': 5,
+      'key': 'q12_L5',
       'template': '''SELECT (MD5(STR(?pat)) AS ?anonID)
        ?tDate ?onsetTypes WHERE {
   ?pat a bto:Patient ;
@@ -240,6 +253,7 @@ ORDER BY ?anonID ?tDate''',
     # Level 6
     {
       'level': 6,
+      'key': 'q13_L6',
       'template': '''SELECT * WHERE {
   ?pat a bto:Patient ;
        bto:hasDisease  {disease} ;
@@ -250,6 +264,7 @@ ORDER BY ?anonID ?tDate''',
     },
     {
       'level': 6,
+      'key': 'q14_L6',
       'template': '''SELECT ?pat ?name ?aOns ?sex ?ev ?evType ?evStart  WHERE {
   ?pat a bto:Patient ;
        bto:sex           ?sex ;
@@ -269,6 +284,7 @@ def catalog():
     for e in RAW_TEMPLATES:
         h = hashlib.sha512(e['template'].encode()).hexdigest()
         entry = {
+            'key':         e['key'],
             'hash':        h,
             'level':       e['level'],
             'template':    e['template'],
@@ -279,3 +295,14 @@ def catalog():
             entry['analytics_key'] = e['analytics_key']
         out.append(entry)
     return out
+
+
+# Keys are the stable template ids shared with the endpoints' catalog
+# (tdn-endpoint/myapp/catalog.py); never reuse or renumber them.
+_KEYS = [e['key'] for e in RAW_TEMPLATES]
+assert len(set(_KEYS)) == len(_KEYS), "duplicate template key in RAW_TEMPLATES"
+
+
+def get_entry(key):
+    """Catalog entry for ``key``, or None."""
+    return next((e for e in catalog() if e['key'] == key), None)
