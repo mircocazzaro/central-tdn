@@ -10,7 +10,7 @@ from django.http import JsonResponse
 from functools import wraps
 
 from .queries              import catalog, get_entry
-from .models               import Endpoint, EnrollmentRequest
+from .models               import Endpoint, EnrollmentRequest, CatalogRelease
 from .                     import network
 from .dispatch             import dispatch, probe_all
 from .forms                import QueryForm, EndpointForm
@@ -83,7 +83,30 @@ def endpoint_manager(request):
         'endpoints': eps,
         'applications': EnrollmentRequest.objects.filter(status=EnrollmentRequest.PENDING),
         'central_fingerprint': network.identity().fingerprint,
+        'catalog_release': CatalogRelease.objects.order_by('-version').first(),
     })
+
+
+def _report(request, what, results):
+    """One message per endpoint with the outcome of a distribution."""
+    if not results:
+        messages.warning(request, f'{what}: no enrolled endpoint to send it to.')
+    for name, ok, detail in network.describe(results):
+        if ok:
+            messages.success(request, f'{what} → {name}: {detail}')
+        else:
+            messages.error(request, f'{what} → {name}: failed ({detail})')
+
+
+@require_manager_password
+@require_POST
+def publish_catalog(request):
+    """Publish the current catalog (queries.py) to every enrolled endpoint."""
+    release, skipped = network.current_catalog_release()
+    for key, reason in skipped:
+        messages.warning(request, f'{key} not published: {reason}.')
+    _report(request, f'Catalog v{release.version}', network.push_catalog(release))
+    return redirect('endpoint_manager')
 
 
 @require_manager_password
@@ -100,6 +123,10 @@ def enrollment_decide(request, pk):
     else:
         if approve:
             messages.success(request, f'"{ep.name}" joined the network.')
+            # Bring the new member up to date with what is already published.
+            release = CatalogRelease.objects.order_by('-version').first()
+            if release:
+                _report(request, f'Catalog v{release.version}', network.push_catalog(release, [ep]))
         else:
             messages.info(request, f'Application of "{req.name}" rejected.')
     return redirect('endpoint_manager')
