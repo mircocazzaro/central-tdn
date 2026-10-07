@@ -70,6 +70,9 @@ MEDIA_ROOT = STATE_DIR / 'media'
 # Simple manager password (in real life use env var!)
 ENDPOINT_MANAGER_PASSWORD = 'supersecret'
 
+# Name shown to endpoints that apply to this Central
+HDN_CENTRAL_NAME = os.getenv('HDN_CENTRAL_NAME', 'HDN Central')
+
 
 # Redirect here after a successful login
 LOGIN_REDIRECT_URL = '/catalog/'  

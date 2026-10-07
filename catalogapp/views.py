@@ -10,7 +10,8 @@ from django.http import JsonResponse
 from functools import wraps
 
 from .queries              import catalog, get_entry
-from .models               import Endpoint
+from .models               import Endpoint, EnrollmentRequest
+from .                     import network
 from .dispatch             import dispatch, probe_all
 from .forms                import QueryForm, EndpointForm
 from .forms import QUESTION_CHOICES, DISEASE_CHOICES
@@ -79,8 +80,29 @@ def endpoint_manager(request):
         ep.online = online
 
     return render(request, 'catalogapp/endpoint_manager.html', {
-        'endpoints': eps
+        'endpoints': eps,
+        'applications': EnrollmentRequest.objects.filter(status=EnrollmentRequest.PENDING),
+        'central_fingerprint': network.identity().fingerprint,
     })
+
+
+@require_manager_password
+@require_POST
+def enrollment_decide(request, pk):
+    """Approve or reject an endpoint's application."""
+    req = get_object_or_404(EnrollmentRequest, pk=pk, status=EnrollmentRequest.PENDING)
+    approve = request.POST.get('decision') == 'approve'
+    try:
+        ep = network.decide(req, approve)
+    except network.DecisionFailed as exc:
+        messages.error(request, f'"{req.name}" was not added: {exc}. '
+                                'The application stays pending.')
+    else:
+        if approve:
+            messages.success(request, f'"{ep.name}" joined the network.')
+        else:
+            messages.info(request, f'Application of "{req.name}" rejected.')
+    return redirect('endpoint_manager')
 
 
 @require_manager_password
