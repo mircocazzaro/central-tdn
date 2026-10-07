@@ -4,6 +4,14 @@
     <div class="card">
       <div class="card-body">
         <h2>Results</h2>
+        {% if errors %}
+        <div id="param-errors" class="alert alert-danger" role="alert">
+          Query not sent: invalid parameters.
+          <ul class="mb-0">
+            {% for field, errs in errors.items %}<li>{{ field }}: {{ errs|join:" " }}</li>{% endfor %}
+          </ul>
+        </div>
+        {% else %}
         <div id="coverage" class="alert {% if failed %}alert-warning{% else %}alert-light{% endif %} py-2">
           <strong>{{ responders|length }}/{{ total }}</strong> endpoints responded
           {% if responders %}:
@@ -72,6 +80,7 @@
               </tbody>
             </table>
           </div>
+        {% endif %}
         {% endif %}
         {% endif %}
       </div>

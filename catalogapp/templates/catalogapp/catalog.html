@@ -297,8 +297,10 @@
          const sec = $(html).find('#results-section').html() || html;
          $('#results-container').html(sec).fadeIn(200);
        })
-       .fail(() => {
-         $('#results-container').html(`
+       .fail(xhr => {
+         // 400 carries the parameter errors in the results section
+         const sec = xhr.responseText && $(xhr.responseText).find('#results-section').html();
+         $('#results-container').html(sec || `
            <div class="alert alert-danger">❌ Query execution failed.</div>
          `);
        });
@@ -423,11 +425,7 @@
         dataType: "json"
       })
       .done(renderTrainResults)
-      .fail(() => {
-        $('#results-container').html(`
-          <div class="alert alert-danger">❌ Model training failed.</div>
-        `);
-      });
+      .fail(xhr => showFailure(xhr, '❌ Model training failed.'));
     });
 
     function renderTrainResults(json) {
@@ -617,11 +615,7 @@
           `);
         });
       })
-      .fail(function() {
-        $('#results-container').html(`
-          <div class="alert alert-danger">❌ Analytics query failed.</div>
-        `);
-      });      
+      .fail(xhr => showFailure(xhr, '❌ Analytics query failed.'));
     });
 
     // 6) Histogram renderer – handles both “buckets” and raw “ages”
@@ -669,6 +663,20 @@
       });
       $('.chart-container').show();
       $('#analytics-chart').show();
+    }
+
+    // Error box for failed AJAX calls; lists parameter errors on a 400
+    function showFailure(xhr, fallback) {
+      const errs = xhr.responseJSON && xhr.responseJSON.errors;
+      const $box = $('<div class="alert alert-danger" role="alert"></div>');
+      if (errs) {
+        $box.text('Not sent: invalid parameters.');
+        const $ul = $('<ul class="mb-0"></ul>').appendTo($box);
+        Object.entries(errs).forEach(([f, m]) => $('<li></li>').text(`${f}: ${[].concat(m).join(' ')}`).appendTo($ul));
+      } else {
+        $box.text(fallback);
+      }
+      $('#results-container').empty().append($box).show();
     }
 
     // 7) Contributors renderer (unchanged)
