@@ -17,7 +17,7 @@
   <tbody>
     {% for ep in endpoints %}
       <tr>
-        <td><img src="{{ ep.logo.url }}" height="40"/></td>
+        <td>{% if ep.logo_url %}<img src="{{ ep.logo_url }}" height="40" alt="{{ ep.name }} logo"/>{% endif %}</td>
         <td>{{ ep.name }}</td>
         <td><a href="{{ ep.url }}" target="_blank">{{ ep.url }}</a></td>
         <td>

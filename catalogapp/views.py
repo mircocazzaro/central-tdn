@@ -240,7 +240,7 @@ def query_view(request):
                     if 'boolean' in data:
                         results.append({
                             'endpoint': ep.name,
-                            'logo_url': ep.logo.url,
+                            'logo_url': ep.logo_url,
                             'boolean':  data['boolean']
                         })
 
@@ -255,14 +255,14 @@ def query_view(request):
                                 else:
                                     row[v] = None
                             row['endpoint'] = ep.name
-                            row['logo_url']  = ep.logo.url
+                            row['logo_url']  = ep.logo_url
                             results.append(row)
 
                     elif 'results' in data:
                         # Known template but no results (or unauthorized)
                         results.append({
                             'endpoint': ep.name,
-                            'logo_url': ep.logo.url,
+                            'logo_url': ep.logo_url,
                             'rows':     []
                         })
 
@@ -270,7 +270,7 @@ def query_view(request):
                         # Unexpected JSON shape
                         results.append({
                             'endpoint': ep.name,
-                            'logo_url': ep.logo.url,
+                            'logo_url': ep.logo_url,
                             'error':    'Invalid response'
                         })
 
@@ -337,7 +337,7 @@ def run_analytics(request):
                 resp.raise_for_status()
                 data = resp.json()
                 results.append({'endpoint': ep.name, 'kl_divergence': data.get('kl_divergence')})
-                responders.append({'name': ep.name, 'logo_url': ep.logo.url})
+                responders.append({'name': ep.name, 'logo_url': ep.logo_url})
             except Exception:
                 failed.append(ep.name)
         return JsonResponse({'results': results, 'responders': responders, 'failed': failed})
@@ -372,7 +372,7 @@ def run_analytics(request):
                     'bracket':  norm('bracket'),
                     'n':        norm('n')
                 })
-            responders.append({'name': ep.name, 'logo_url': ep.logo.url})
+            responders.append({'name': ep.name, 'logo_url': ep.logo_url})
         except Exception:
             failed.append(ep.name)
     agg = {}
@@ -448,12 +448,12 @@ def run_analytics(request):
                     'bracket':  norm('bracket'),
                     'n':        norm('n'),
                     'endpoint': ep.name,
-                    'logo_url': ep.logo.url,
+                    'logo_url': ep.logo_url,
                 })
 
             responders.append({
                 'name':     ep.name,
-                'logo_url': ep.logo.url
+                'logo_url': ep.logo_url
             })
 
 

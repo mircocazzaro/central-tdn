@@ -10,9 +10,9 @@
           <ul class="list-group">
             {% for r in results %}
               <li class="list-group-item d-flex align-items-center">
-                <img src="{{ r.logo_url }}"
+                {% if r.logo_url %}<img src="{{ r.logo_url }}"
                      alt="{{ r.endpoint }} logo"
-                     style="height:24px; width:auto; margin-right:8px;">
+                     style="height:24px; width:auto; margin-right:8px;">{% endif %}
                 {{ r.endpoint }} → <strong>{{ r.boolean }}</strong>
               </li>
             {% endfor %}
@@ -47,9 +47,9 @@
                 {% for row in results %}
                   <tr>
                     <td>
-                      <img src="{{ row.logo_url }}"
+                      {% if row.logo_url %}<img src="{{ row.logo_url }}"
                            alt="{{ row.endpoint }} logo"
-                           style="height:24px; width:auto;">
+                           style="height:24px; width:auto;">{% endif %}
                     </td>
                     <td>{{ row.endpoint }}</td>
                     {# Now output each remaining field #}
