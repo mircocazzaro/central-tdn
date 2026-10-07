@@ -13,7 +13,7 @@ from functools import wraps
 import numpy as np
 from math import log
 
-from .queries              import catalog
+from .queries              import catalog, get_entry
 from .models               import Endpoint
 from .dispatch             import dispatch
 from .forms                import QueryForm, EndpointForm
@@ -171,8 +171,8 @@ def home(request):
 @login_required
 def central_catalog(request):
     entries = catalog()
-    for idx, e in enumerate(entries):
-        e["id"] = idx
+    for e in entries:
+        e["id"] = e["key"]
 
     return render(request, "catalogapp/catalog.html", {
         "catalog": entries,
@@ -191,11 +191,8 @@ def query_view(request):
 
     # 1) Grab the id param (must be present on both GET and POST)
     raw_id = request.GET.get('id') if request.method == 'GET' else request.POST.get('id')
-    try:
-        idx     = int(raw_id)
-        entries = catalog()
-        entry   = entries[idx]
-    except Exception:
+    entry = get_entry(raw_id)
+    if entry is None:
         messages.error(request, "Unknown query template.")
         return redirect('central_catalog')
 
@@ -212,14 +209,10 @@ def query_view(request):
 
             q = prefixes + q
 
-            # Mask out the original template markers so they don’t get sent along
-            entry['template'] = entry['template'].replace('<{', '**<').replace('}>', '>**')
+            # Endpoints derive the template from the query itself.
             results = []
             responders = []
-            answered, failed = dispatch({
-                'template': entry['template'],
-                'query':    q,
-            })
+            answered, failed = dispatch({'query': q})
 
             for ep, data in answered:
                 if not isinstance(data, dict):
@@ -289,14 +282,12 @@ def run_analytics(request):
     q = prefixes + entry['template']
     for param, v in form.cleaned_data.items():
         q = q.replace(f'{{{param}}}', v)
-    masked_template = entry['template'].replace('<{', '**<').replace('}>', '>**')
 
     # 2) If KL-divergence, delegate to each endpoint
     if key == 'klDiv':
         results = []
         responders = []
         answered, down = dispatch({
-            'template':     masked_template,
             'query':        q,
             'analytics_key': key,
         }, accept='application/json')
@@ -312,10 +303,7 @@ def run_analytics(request):
     # 3) Fallback: ageDist local aggregation
     raw_bindings = []
     responders = []
-    answered, down = dispatch({
-        'template': masked_template,
-        'query':    q,
-    })
+    answered, down = dispatch({'query': q})
     failed = [ep.name for ep in down]
     for ep, data in answered:
         try:
@@ -509,6 +497,8 @@ def train_model(request):
     if not form.is_valid():
         return JsonResponse({"error": "Invalid parameters", "errors": form.errors}, status=400)
     disease = form.cleaned_data['disease']
+    if get_entry(request.POST.get('id')) is None:
+        return JsonResponse({"error": "Unknown query template"}, status=400)
 
     df = _fetch_query_dataframe(request.POST['id'], disease)
     # catalogapp/views.py, in train_model, after you have your df:
@@ -594,8 +584,9 @@ def _fetch_query_dataframe(query_id, disease):
     fan it out to all endpoints, collect the SELECT bindings,
     and return a pandas.DataFrame of the results.
     """
-    entries = catalog()
-    entry   = entries[int(query_id)]
+    entry = get_entry(query_id)
+    if entry is None:
+        raise ValueError(f"unknown template key {query_id!r}")
 
     # 1) Grab the raw template
     raw_template = entry['template']
@@ -606,9 +597,6 @@ def _fetch_query_dataframe(query_id, disease):
     # (for debugging—log this)
     print("TRAIN_MODEL SPARQL:\n", sparql)
 
-    # 3) Mask the template markers *locally* for the POST body
-    masked_template = raw_template.replace("<{", "**<").replace("}>", ">**")
-
     rows = []
     for ep in Endpoint.objects.all():
         url = ep.url.rstrip("/") + "/sparql-protected/"
@@ -616,7 +604,6 @@ def _fetch_query_dataframe(query_id, disease):
             resp = requests.post(
                 url,
                 data=urllib.parse.urlencode({
-                    "template": masked_template,
                     "query":    sparql
                 }, quote_via=urllib.parse.quote),
                 headers={
