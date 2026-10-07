@@ -4,7 +4,16 @@
     <div class="card">
       <div class="card-body">
         <h2>Results</h2>
-        <!--<pre>{{ query }}</pre>-->
+        <div id="coverage" class="alert {% if failed %}alert-warning{% else %}alert-light{% endif %} py-2">
+          <strong>{{ responders|length }}/{{ total }}</strong> endpoints responded
+          {% if responders %}:
+            {% for r in responders %}{{ r.name }} ({{ r.rows }} row{{ r.rows|pluralize }}){% if not forloop.last %}, {% endif %}{% endfor %}
+          {% endif %}
+          {% if failed %}<br>No response: {{ failed|join:", " }}{% endif %}
+        </div>
+        {% if not results %}
+          <p class="text-muted">No results.</p>
+        {% else %}
 
         {% if results.0.boolean is not None %}
           <ul class="list-group">
@@ -63,6 +72,7 @@
               </tbody>
             </table>
           </div>
+        {% endif %}
         {% endif %}
       </div>
     </div>
