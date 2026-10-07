@@ -306,3 +306,36 @@ assert len(set(_KEYS)) == len(_KEYS), "duplicate template key in RAW_TEMPLATES"
 def get_entry(key):
     """Catalog entry for ``key``, or None."""
     return next((e for e in catalog() if e['key'] == key), None)
+
+
+# Parameter -> grammar name on the endpoints (PARAM_TYPES in
+# tdn-endpoint/myapp/catalog.py). Templates with a parameter not listed here
+# cannot be validated by the endpoints and are left out of the published
+# catalog.
+def wire_type(param):
+    if param == 'disease':
+        return 'disease'
+    if param == 'question':
+        return 'alsfrs_question'
+    if param == 'sex':
+        return 'sex'
+    if param == 'age' or (param.startswith('age') and param[3:].isdigit()):
+        return 'age'
+    return None
+
+
+def federated_templates():
+    """``(published, skipped)``: entries for the endpoints, and (key, reason) left out."""
+    published, skipped = [], []
+    for e in RAW_TEMPLATES:
+        types = {p: wire_type(p) for p in e['params']}
+        missing = sorted(p for p, t in types.items() if t is None)
+        if missing:
+            skipped.append((e['key'], f"no endpoint grammar for {', '.join(missing)}"))
+            continue
+        published.append({
+            'key': e['key'], 'level': e['level'], 'description': e['description'],
+            'params': types, 'sha512': hashlib.sha512(e['template'].encode()).hexdigest(),
+            'sparql': e['template'],
+        })
+    return published, skipped

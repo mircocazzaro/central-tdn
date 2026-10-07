@@ -7,6 +7,7 @@
   answered with a signature by the key it applied with.
 """
 import datetime
+import hashlib
 import json
 import logging
 from concurrent.futures import ThreadPoolExecutor
@@ -177,3 +178,57 @@ def push_all(action, payload, path, endpoints=None):
         return []
     with ThreadPoolExecutor(max_workers=min(MAX_WORKERS, len(eps))) as pool:
         return list(pool.map(one, eps))
+
+
+# ---------------------------------------------------------------------------
+# Query catalog distribution
+# ---------------------------------------------------------------------------
+
+def _digest(doc):
+    body = {k: v for k, v in doc.items() if k != 'version'}
+    return hashlib.sha256(json.dumps(body, sort_keys=True).encode('utf-8')).hexdigest()
+
+
+def current_catalog_release():
+    """Release matching the current catalog (queries.py), created if it changed.
+
+    Returns ``(release, skipped)``.
+    """
+    from .models import CatalogRelease
+    from .queries import federated_templates
+    from .views import prefixes
+
+    published, skipped = federated_templates()
+    doc = {'prologue': prefixes, 'templates': published}
+    digest = _digest(doc)
+    with transaction.atomic():
+        last = CatalogRelease.objects.select_for_update().order_by('-version').first()
+        if last and last.digest == digest:
+            return last, skipped
+        version = (last.version + 1) if last else 1
+        doc['version'] = version
+        return CatalogRelease.objects.create(version=version, document=doc, digest=digest), skipped
+
+
+def push_catalog(release, endpoints=None):
+    """Send ``release`` to the enrolled endpoints; records the installed version."""
+    results = push_all('catalog', {'catalog': release.document}, '/hdn/catalog/', endpoints)
+    for ep, ok, status, data in results:
+        if ok and isinstance(data, dict) and data.get('version') == release.version:
+            Endpoint.objects.filter(pk=ep.pk).update(catalog_version=release.version)
+        elif isinstance(data, dict) and status == 409 and isinstance(data.get('installed'), int):
+            Endpoint.objects.filter(pk=ep.pk).update(catalog_version=data['installed'])
+    return results
+
+
+def describe(results):
+    """Human-readable per-endpoint outcome lines."""
+    out = []
+    for ep, ok, status, data in results:
+        if ok:
+            out.append((ep.name, True, str((data or {}).get('status', 'ok'))))
+        else:
+            detail = data if isinstance(data, str) else (
+                (data or {}).get('error', '') if isinstance(data, dict) else '')
+            out.append((ep.name, False, f"{'HTTP %s ' % status if status else ''}{detail}".strip()))
+    return out

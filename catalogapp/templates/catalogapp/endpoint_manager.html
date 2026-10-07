@@ -9,6 +9,21 @@
   Endpoints apply from their <em>HDN Network</em> page with the URL of this Central.
 </p>
 
+<div class="card mb-4">
+  <div class="card-body">
+    <h5 class="card-title">Distribution to enrolled endpoints</h5>
+    <div class="d-flex flex-wrap gap-3 align-items-center" id="distribution">
+      <form method="post" action="{% url 'publish_catalog' %}" class="d-inline">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-outline-primary btn-sm">Publish query catalog</button>
+      </form>
+      <span class="small text-muted">
+        {% if catalog_release %}Last published: v{{ catalog_release.version }} ({{ catalog_release.created|date:"Y-m-d H:i" }}){% else %}Not published yet{% endif %}
+      </span>
+    </div>
+  </div>
+</div>
+
 {% if applications %}
 <div class="card border-warning mb-4">
   <div class="card-body">
@@ -45,6 +60,7 @@
       <th>Name</th>
       <th>URL</th>
       <th>Key</th>
+      <th>Catalog</th>
       <th>Status</th>
       <th>Actions</th>
     </tr>
@@ -56,6 +72,7 @@
         <td>{{ ep.name }}</td>
         <td><a href="{{ ep.url }}" target="_blank" rel="noopener">{{ ep.url }}</a></td>
         <td>{% if ep.fingerprint %}<code class="small">{{ ep.fingerprint }}</code>{% else %}<span class="text-muted small">added by hand: no updates</span>{% endif %}</td>
+        <td class="small">{% if ep.catalog_version is not None %}v{{ ep.catalog_version }}{% else %}–{% endif %}</td>
         <td>
           {% if ep.online %}
             <span class="badge bg-success">Online</span>

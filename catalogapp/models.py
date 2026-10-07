@@ -58,3 +58,14 @@ class SeenNonce(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=['sender', 'nonce'], name='unique_sender_nonce')]
+
+
+class CatalogRelease(models.Model):
+    """A published version of the query catalog, as sent to the endpoints."""
+    version = models.PositiveIntegerField(unique=True)
+    document = models.JSONField()
+    digest = models.CharField(max_length=64)  # content hash, version excluded
+    created = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-version']
