@@ -129,6 +129,12 @@
       random_state:       ''         // (None)
     };
 
+    // HTML-escape every value interpolated into markup: endpoint names come
+    // from the manager form and endpoint answers are untrusted.
+    function esc(v) {
+      return String(v ?? '').replace(/[&<>"'`]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;'}[c]));
+    }
+
     $(function() {
       // CSRF helper (same as before)
       function getCookie(name) {
@@ -178,10 +184,10 @@
       catalogData.forEach(q => {
         $('#query-list').append(`
           <li class="list-group-item query-item"
-              data-id="${q.id}"
-              data-params='${JSON.stringify(q.params)}'
-              data-description="${q.description}">
-            ${q.description}
+              data-id="${esc(q.id)}"
+              data-params='${esc(JSON.stringify(q.params))}'
+              data-description="${esc(q.description)}">
+            ${esc(q.description)}
           </li>
         `);
       });
@@ -210,7 +216,7 @@
         params.forEach(p => {
           if (p === 'disease') {
             const opts = diseasesMap.map(([v, t]) =>
-              `<option value="${v}">${t}</option>`).join('');
+              `<option value="${esc(v)}">${esc(t)}</option>`).join('');
             $f.append(`
               <div class="mb-3">
                 <label class="form-label">Select Disease</label>
@@ -222,7 +228,7 @@
           }
           else if (p === 'question') {
             const opts = questionChoices.map(([v, t]) =>
-              `<option value="${v}">${t}</option>`).join('');
+              `<option value="${esc(v)}">${esc(t)}</option>`).join('');
             $f.append(`
               <div class="mb-3">
                 <label class="form-label">Select ALSFRS question</label>
@@ -235,8 +241,8 @@
           else if (/date/i.test(p)) {
             $f.append(`
               <div class="mb-3">
-                <label class="form-label text-capitalize">${p.replace('_',' ')}</label>
-                <input type="date" name="${p}"
+                <label class="form-label text-capitalize">${esc(p.replace('_',' '))}</label>
+                <input type="date" name="${esc(p)}"
                        class="form-control form-control-sm" required>
               </div>
             `);
@@ -244,8 +250,8 @@
           else if (/^age/i.test(p)) {
             $f.append(`
               <div class="mb-3">
-                <label class="form-label text-capitalize">${p.replace('_',' ')}</label>
-                <input type="number" name="${p}"
+                <label class="form-label text-capitalize">${esc(p.replace('_',' '))}</label>
+                <input type="number" name="${esc(p)}"
                        class="form-control form-control-sm" required>
               </div>
             `);
@@ -253,8 +259,8 @@
           else {
             $f.append(`
               <div class="mb-3">
-                <label class="form-label text-capitalize">${p.replace('_',' ')}</label>
-                <input type="text" name="${p}"
+                <label class="form-label text-capitalize">${esc(p.replace('_',' '))}</label>
+                <input type="text" name="${esc(p)}"
                        class="form-control form-control-sm" required>
               </div>
             `);
@@ -262,7 +268,7 @@
         });
   
         // Always include the id
-        $f.append(`<input type="hidden" name="id" value="${id}">`);
+        $f.append(`<input type="hidden" name="id" value="${esc(id)}">`);
       });
   
     // 3) Query form submit (unchanged)
@@ -312,7 +318,7 @@
       entry.params.forEach(p => {
         if (p === 'disease') {
           const opts = diseasesMap.map(([v,t])=>
-            `<option value="${v}">${t}</option>`).join('');
+            `<option value="${esc(v)}">${esc(t)}</option>`).join('');
           $f.append(`
             <div class="mb-3">
               <label class="form-label">Select Disease</label>
@@ -325,20 +331,20 @@
           // numeric input for age1, age2, age3
           $f.append(`
             <div class="mb-3">
-              <label class="form-label text-capitalize">${p}</label>
-              <input type="number" name="${p}"
+              <label class="form-label text-capitalize">${esc(p)}</label>
+              <input type="number" name="${esc(p)}"
                     class="form-control form-control-sm" required>
             </div>
           `);
         }
-        $f.append(`<input type="hidden" name="id"           value="${entry.id}">`);
+        $f.append(`<input type="hidden" name="id"           value="${esc(entry.id)}">`);
         $f.append(`<input type="hidden" name="analytics"    value="true">`);
-        $f.append(`<input type="hidden" name="analyticsVar" value="${entry.analytics_var}">`);
+        $f.append(`<input type="hidden" name="analyticsVar" value="${esc(entry.analytics_var)}">`);
   
       });
 
       // Hidden key so the view can pick the right template
-      $f.append(`<input type="hidden" name="query_key" value="${entry.analytics_key}">`);
+      $f.append(`<input type="hidden" name="query_key" value="${esc(entry.analytics_key)}">`);
     });
 
     // 4) Click “Train Regression Tree” → show right-pane form
@@ -359,13 +365,13 @@
         $fields.append(`
           <div class="mb-3">
             <label class="form-label text-capitalize">
-              ${param.replace(/_/g,' ')}
+              ${esc(param.replace(/_/g,' '))}
             </label>
             <input
               type="${isNumber ? 'number':'text'}"
-              name="${param}"
+              name="${esc(param)}"
               class="form-control form-control-sm"
-              value="${def}"
+              value="${esc(def)}"
             >
           </div>
         `);
@@ -375,7 +381,7 @@
           <label class="form-label">Select Disease</label>
           <select name="disease" class="form-select form-select-sm" required>
             ${diseasesMap.map(([v,t]) =>
-              `<option value="${v}">${t}</option>`
+              `<option value="${esc(v)}">${esc(t)}</option>`
             ).join('')}
           </select>
         </div>
@@ -383,7 +389,7 @@
 
       // always include the query id
       $fields.append(
-        `<input type="hidden" name="id" value="${$(this).data('query-id')}">`
+        `<input type="hidden" name="id" value="${esc($(this).data('query-id'))}">`
       );
 
       // Show the train-form container
@@ -415,7 +421,7 @@
 
       // Metrics table
       const rows = Object.entries(json.metrics)
-        .map(([k,v]) => `<tr><th>${k}</th><td>${v.toFixed(4)}</td></tr>`)
+        .map(([k,v]) => `<tr><th>${esc(k)}</th><td>${esc(Number(v).toFixed(4))}</td></tr>`)
         .join('');
       $out.append(`
         <h5>Model performance</h5>
@@ -429,7 +435,7 @@
       if (json.tree_png) {
         $out.append(`
           <h5>Tree structure</h5>
-          <img src="data:image/png;base64,${json.tree_png}"
+          <img src="data:image/png;base64,${esc(json.tree_png)}"
               class="img-fluid border rounded mb-4" />
         `);
       }
@@ -453,7 +459,7 @@
             <label class="form-label">Endpoint</label>
             <input name="endpoint" class="form-control form-control-sm" required>
           </div>
-          <input type="hidden" name="model_id" value="${json.model_id}">
+          <input type="hidden" name="model_id" value="${esc(json.model_id)}">
           <div class="col-12">
             <button class="btn btn-primary">Predict Age</button>
           </div>
@@ -469,7 +475,7 @@
         .done(json => {
           $('#prediction-result').html(`
             <div class="alert alert-info">
-              Predicted age-onset: <strong>${json.predicted.toFixed(2)}</strong>
+              Predicted age-onset: <strong>${esc(Number(json.predicted).toFixed(2))}</strong>
             </div>
           `);
         })
@@ -516,7 +522,7 @@
           // Build table rows
           const rows = json.results.map(r =>
           `<tr>
-            <td>${r.endpoint}</td>
+            <td>${esc(r.endpoint)}</td>
             <td>${r.kl_divergence !== null
                   ? r.kl_divergence.toFixed(4)
                   : 'N/A'}</td>
@@ -587,11 +593,11 @@
         // show endpoint logos
         const $ctr = $('#analytics-contributors').empty().show();
         (json.responders || []).forEach(ep => {
-          if (!ep.logo_url) { $ctr.append(`<span class="me-2 mb-2">${ep.name}</span>`); return; }
+          if (!ep.logo_url) { $ctr.append(`<span class="me-2 mb-2">${esc(ep.name)}</span>`); return; }
           $ctr.append(`
-            <img src="${ep.logo_url}"
-                 alt="${ep.name}"
-                 title="${ep.name}"
+            <img src="${esc(ep.logo_url)}"
+                 alt="${esc(ep.name)}"
+                 title="${esc(ep.name)}"
                  class="me-2 mb-2"
                  style="height:32px; object-fit:contain;" />
           `);
@@ -618,10 +624,10 @@
     function renderContributors(responders, failed) {
       const $ctr = $('#analytics-contributors').empty().show();
       if (responders.length) {
-        $ctr.append(`<div>✅ Responded: ${responders.join(', ')}</div>`);
+        $ctr.append(`<div>✅ Responded: ${esc(responders.join(', '))}</div>`);
       }
       if (failed.length) {
-        $ctr.append(`<div>❌ No response: ${failed.join(', ')}</div>`);
+        $ctr.append(`<div>❌ No response: ${esc(failed.join(', '))}</div>`);
       }
     }
 
