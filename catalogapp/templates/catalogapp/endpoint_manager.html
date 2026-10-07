@@ -4,13 +4,48 @@
   <h2>Endpoints</h2>
   <a href="{% url 'endpoint_add' %}" class="btn btn-success">+ Add</a>
 </div>
+<p class="text-muted small">
+  Central key: <code>{{ central_fingerprint }}</code>.
+  Endpoints apply from their <em>HDN Network</em> page with the URL of this Central.
+</p>
+
+{% if applications %}
+<div class="card border-warning mb-4">
+  <div class="card-body">
+    <h5 class="card-title">Pending applications</h5>
+    <table class="table table-sm mb-0" id="applications">
+      <thead><tr><th>Name</th><th>URL</th><th>Endpoint key</th><th>From</th><th>Received</th><th></th></tr></thead>
+      <tbody>
+      {% for a in applications %}
+        <tr>
+          <td>{{ a.name }}</td>
+          <td><small>{{ a.url }}</small></td>
+          <td><code class="small">{{ a.fingerprint }}</code></td>
+          <td><small>{{ a.remote_addr|default:"" }}</small></td>
+          <td><small>{{ a.created|date:"Y-m-d H:i" }}</small></td>
+          <td class="text-nowrap">
+            <form method="post" action="{% url 'enrollment_decide' a.pk %}" class="d-inline">
+              {% csrf_token %}
+              <button name="decision" value="approve" class="btn btn-sm btn-success">Approve</button>
+              <button name="decision" value="reject" class="btn btn-sm btn-outline-danger">Reject</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
 <table class="table table-striped">
   <thead>
     <tr>
       <th>Logo</th>
       <th>Name</th>
       <th>URL</th>
-      <th>Status</th>   {# new column header #}
+      <th>Key</th>
+      <th>Status</th>
       <th>Actions</th>
     </tr>
   </thead>
@@ -19,7 +54,8 @@
       <tr>
         <td>{% if ep.logo_url %}<img src="{{ ep.logo_url }}" height="40" alt="{{ ep.name }} logo"/>{% endif %}</td>
         <td>{{ ep.name }}</td>
-        <td><a href="{{ ep.url }}" target="_blank">{{ ep.url }}</a></td>
+        <td><a href="{{ ep.url }}" target="_blank" rel="noopener">{{ ep.url }}</a></td>
+        <td>{% if ep.fingerprint %}<code class="small">{{ ep.fingerprint }}</code>{% else %}<span class="text-muted small">added by hand: no updates</span>{% endif %}</td>
         <td>
           {% if ep.online %}
             <span class="badge bg-success">Online</span>
