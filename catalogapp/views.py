@@ -255,6 +255,9 @@ def query_view(request):
                 'failed':     [ep.name for ep in failed],
                 'total':      len(responders) + len(failed),
             })
+        # Invalid parameters: nothing is dispatched, the user sees why.
+        return render(request, 'catalogapp/results.html',
+                      {'errors': form.errors}, status=400)
 
     # 3) Otherwise (GET) just show the form
     else:
@@ -279,10 +282,12 @@ def run_analytics(request):
     if not entry:
         return JsonResponse({'results': [], 'responders': [], 'failed': []})
 
-    # 1) Build SPARQL string
+    # 1) Validate parameters, then build the SPARQL string
+    form = QueryForm(request.POST, params=entry['params'])
+    if not form.is_valid():
+        return JsonResponse({'error': 'Invalid parameters', 'errors': form.errors}, status=400)
     q = prefixes + entry['template']
-    for param in entry['params']:
-        v = request.POST.get(param) or ''
+    for param, v in form.cleaned_data.items():
         q = q.replace(f'{{{param}}}', v)
     masked_template = entry['template'].replace('<{', '**<').replace('}>', '>**')
 
@@ -500,9 +505,10 @@ def run_analytics(request):
 @login_required
 def train_model(request):
     # 1) Re-run the underlying query to get {evType, sex, endpoint, ageOn}
-    disease = request.POST.get("disease")
-    if not disease:
-        return JsonResponse({"error": "Missing disease parameter"}, status=400)
+    form = QueryForm(request.POST, params=['disease'])
+    if not form.is_valid():
+        return JsonResponse({"error": "Invalid parameters", "errors": form.errors}, status=400)
+    disease = form.cleaned_data['disease']
 
     df = _fetch_query_dataframe(request.POST['id'], disease)
     # catalogapp/views.py, in train_model, after you have your df:
