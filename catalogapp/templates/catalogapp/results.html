@@ -23,7 +23,7 @@
           <p class="text-muted">No results.</p>
         {% else %}
 
-        {% if results.0.boolean is not None %}
+        {% if is_ask %}
           <ul class="list-group">
             {% for r in results %}
               <li class="list-group-item d-flex align-items-center">
@@ -47,16 +47,14 @@
                   <th scope="col" role="columnheader" aria-sort="none" tabindex="0" data-col-index="1">
                     Endpoint
                   </th>
-                  {% for k in results.0.keys %}
-                    {% if k != 'logo_url' and k != 'endpoint' %}
-                      <th scope="col"
-                          role="columnheader"
-                          aria-sort="none"
-                          tabindex="0"
-                          data-col-index="{{ forloop.counter|add:'1' }}">
-                        {{ k }}
-                      </th>
-                    {% endif %}
+                  {% for k in columns %}
+                    <th scope="col"
+                        role="columnheader"
+                        aria-sort="none"
+                        tabindex="0"
+                        data-col-index="{{ forloop.counter|add:'1' }}">
+                      {{ k }}
+                    </th>
                   {% endfor %}
                 </tr>
               </thead>
@@ -69,11 +67,8 @@
                            style="height:24px; width:auto;">{% endif %}
                     </td>
                     <td>{{ row.endpoint }}</td>
-                    {# Now output each remaining field #}
-                    {% for key, value in row.items %}
-                      {% if key != 'logo_url' and key != 'endpoint' %}
-                        <td>{{ value }}</td>
-                      {% endif %}
+                    {% for value in row.cells %}
+                      <td>{{ value|default_if_none:"" }}</td>
                     {% endfor %}
                   </tr>
                 {% endfor %}
