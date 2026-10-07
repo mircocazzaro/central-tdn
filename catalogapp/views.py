@@ -1,6 +1,5 @@
 # catalogapp/views.py
 import requests
-from urllib.parse import urlparse, urljoin
 import urllib.parse
 from django.shortcuts      import render, redirect, get_object_or_404
 from django.conf           import settings
@@ -13,7 +12,7 @@ from functools import wraps
 
 from .queries              import catalog, get_entry
 from .models               import Endpoint
-from .dispatch             import dispatch
+from .dispatch             import dispatch, probe_all
 from .forms                import QueryForm, EndpointForm
 from .forms import QUESTION_CHOICES
 import base64
@@ -74,35 +73,9 @@ def endpoint_manager(request):
     List all endpoints with Add / Edit / Delete links,
     and check whether each one is up.
     """
-    eps = []
-    for ep in Endpoint.objects.all():
-        parsed = urlparse(ep.url)
-
-        # 1) take scheme + netloc
-        base_netloc = f"{parsed.scheme}://{parsed.netloc}"
-
-        # 2) take whatever “path” was in the original URL (e.g. "/api3"),
-        #    but strip any trailing slash so we don’t get "//sparql‐protected"
-        prefix = parsed.path.rstrip("/")
-
-        # 3) build the "sparql‐protected" URL under that path:
-        #    e.g. "http://tdn.dei.unipd.it" + "/api3" + "/sparql‐protected/"
-        protected_path = prefix + "/sparql-protected/"
-
-        # urljoin will handle a missing leading slash in protected_path,
-        # but since we constructed protected_path with a leading slash
-        # (because parsed.path always starts with "/"), urljoin is straightforward:
-        base = urljoin(base_netloc, protected_path)
-
-        try:
-            resp = requests.get(base, timeout=2)
-            # if the SPARQL‐protected URL exists but only accepts POST/PUT/etc,
-            # you’ll often get 405 Method Not Allowed, which we treat as “online”
-            ep.online = (resp.status_code == 405)
-        except requests.RequestException:
-            ep.online = False
-
-        eps.append(ep)
+    eps = list(Endpoint.objects.all())
+    for ep, online in zip(eps, probe_all(eps)):
+        ep.online = online
 
     return render(request, 'catalogapp/endpoint_manager.html', {
         'endpoints': eps

@@ -50,3 +50,28 @@ def dispatch(fields, accept='application/sparql-results+json'):
                 log.warning("endpoint %s (%s) failed: %s", ep.name, ep.url, type(exc).__name__)
                 failed.append(ep)
     return answered, failed
+
+
+PROBE_TIMEOUT = 3
+
+
+def _probe(ep):
+    """True if the endpoint's query URL exists and its server is healthy.
+
+    Any answer except 404 or 5xx counts: the endpoint replies 405 to a GET
+    today, but Central should not depend on that exact status.
+    """
+    url = ep.url.rstrip('/') + '/sparql-protected/'
+    try:
+        resp = requests.get(url, timeout=PROBE_TIMEOUT, allow_redirects=False)
+    except requests.RequestException:
+        return False
+    return resp.status_code != 404 and resp.status_code < 500
+
+
+def probe_all(endpoints):
+    """Online flag for each endpoint, probed concurrently, in input order."""
+    if not endpoints:
+        return []
+    with ThreadPoolExecutor(max_workers=min(MAX_WORKERS, len(endpoints))) as pool:
+        return list(pool.map(_probe, endpoints))
