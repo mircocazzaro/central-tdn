@@ -20,6 +20,18 @@ python manage.py runserver 0.0.0.0:8000
 
 Open `http://<host>:8000/` and log in with the account you just created.
 
+## Installation with Docker
+
+```bash
+git clone https://github.com/mircocazzaro/central-tdn.git
+cd central-tdn
+CENTRAL_ADMIN_PASSWORD='choose-one' docker compose up -d --build
+```
+
+Central listens on port 8000. The login account `admin` (or
+`CENTRAL_ADMIN_USER`) is created on first start. Database and logos are kept
+in the `central-state` volume.
+
 ## Registering endpoints
 
 Go to **Endpoints** in the navbar (manager password: `ENDPOINT_MANAGER_PASSWORD`

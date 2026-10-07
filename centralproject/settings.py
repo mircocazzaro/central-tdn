@@ -19,6 +19,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',                 # static files under gunicorn
     'django.contrib.sessions.middleware.SessionMiddleware',       # ← fixed
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',                  # if you need CSRF
@@ -52,15 +53,19 @@ STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 
+# State lives under HDN_STATE_DIR when set (the Docker image mounts a volume
+# there); otherwise in the project directory, as before.
+STATE_DIR = Path(os.getenv('HDN_STATE_DIR', BASE_DIR))
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': STATE_DIR / 'db.sqlite3',
     }
 }
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = STATE_DIR / 'media'
 
 # Simple manager password (in real life use env var!)
 ENDPOINT_MANAGER_PASSWORD = 'supersecret'

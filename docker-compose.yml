@@ -1,0 +1,15 @@
+services:
+  central:
+    build: .
+    image: hdn-central
+    ports:
+      - "8000:8000"
+    environment:
+      DJANGO_SUPERUSER_USERNAME: ${CENTRAL_ADMIN_USER:-admin}
+      DJANGO_SUPERUSER_PASSWORD: ${CENTRAL_ADMIN_PASSWORD:?set CENTRAL_ADMIN_PASSWORD}
+    volumes:
+      - central-state:/app/state
+    restart: unless-stopped
+
+volumes:
+  central-state:
