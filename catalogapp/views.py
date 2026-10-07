@@ -241,9 +241,21 @@ def query_view(request):
                     continue
                 responders.append({'name': ep.name, 'logo_url': ep.logo_url, 'rows': n_rows})
 
+            # Columns are the union over all rows, in first-seen order, so rows
+            # from endpoints with different projections stay aligned.
+            columns = []
+            for row in results:
+                for k in row:
+                    if k not in ('endpoint', 'logo_url') and k not in columns:
+                        columns.append(k)
+            for row in results:
+                row['cells'] = [row.get(k) for k in columns]
+
             return render(request, 'catalogapp/results.html', {
                 'query':      q,
                 'results':    results,
+                'columns':    columns,
+                'is_ask':     any('boolean' in row for row in results),
                 'responders': responders,
                 'failed':     [ep.name for ep in failed],
                 'total':      len(responders) + len(failed),
