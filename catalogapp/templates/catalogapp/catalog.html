@@ -112,8 +112,6 @@
       JSON.parse(
         document.getElementById('questionChoices').textContent
       );
-    // sanity check:
-    console.log('Loaded questions:', questionChoices);
   </script>
 
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -176,21 +174,6 @@
         'criterion','splitter','max_depth','min_samples_split',
         'min_samples_leaf','max_features','random_state'
       ];
-      const analyticsDefinitions = {
-        ageDist: {
-          template: `
-    SELECT ?ageOn WHERE {
-      ?pat a bto:Patient ;
-           bto:hasDisease {disease} ;
-           bto:undergo ?ev .
-      ?ev  a bto:Onset ;
-           bto:ageOnset ?ageOn .
-    }`,
-          params: ['disease'],
-          description: 'Distribution of age at onset for DISEASE patients'
-        }
-      };
-
       // 1) Populate your **Queries** list
       const catalogData = JSON.parse($('#catalogData').text());
       catalogData.forEach(q => {
@@ -617,53 +600,6 @@
       })
       .fail(xhr => showFailure(xhr, '❌ Analytics query failed.'));
     });
-
-    // 6) Histogram renderer – handles both “buckets” and raw “ages”
-    let analyticsChart = null;
-    function renderHistogram(data) {
-      // If data is an array of {bucket, count}, unpack directly
-      let labels, counts;
-
-      if (data.length > 0 && typeof data[0] === 'object' && data[0].bucket !== undefined) {
-        labels = data.map(d => d.bucket);
-        counts = data.map(d => d.count);
-
-      } else {
-        // Otherwise assume it’s a plain array of ages
-        const ages = data.map(a => parseInt(a, 10)).filter(n => !isNaN(n));
-        if (!ages.length) {
-          return alert("No data to plot.");
-        }
-
-        const min = Math.min(...ages), max = Math.max(...ages);
-        const bins = 10, size = Math.ceil((max - min)/bins);
-        labels = Array.from({length: bins}, (_, i) => {
-          const start = min + i*size, end = start + size - 1;
-          return `${start}–${end}`;
-        });
-        counts = Array(bins).fill(0);
-        ages.forEach(n => {
-          const idx = Math.min(bins - 1, Math.floor((n - min)/size));
-          counts[idx]++;
-        });
-      }
-
-      // Draw chart
-      const ctx = document.getElementById('analytics-chart').getContext('2d');
-      if (analyticsChart) analyticsChart.destroy();
-      analyticsChart = new Chart(ctx, {
-        type: 'bar',
-        data: { labels, datasets: [{ label: 'Count', data: counts }] },
-        options: {
-          scales: {
-            x: { title: { display: true, text: 'Age Bracket' } },
-            y: { title: { display: true, text: '# Patients' } }
-          }
-        }
-      });
-      $('.chart-container').show();
-      $('#analytics-chart').show();
-    }
 
     // Error box for failed AJAX calls; lists parameter errors on a 400
     function showFailure(xhr, fallback) {

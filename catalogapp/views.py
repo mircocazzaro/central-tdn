@@ -10,8 +10,6 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 import json
 from functools import wraps
-import numpy as np
-from math import log
 
 from .queries              import catalog, get_entry
 from .models               import Endpoint
@@ -22,9 +20,8 @@ import base64
 import io
 import pandas as pd
 from django.views.decorators.http import require_POST
-from django.http import JsonResponse
 from sklearn.tree import DecisionTreeRegressor, plot_tree
-from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, r2_score
 import uuid
 import matplotlib.pyplot as plt
@@ -339,168 +336,7 @@ def run_analytics(request):
     results = [{'bracket': label, 'n': agg[label]} for label in sorted(agg.keys(), key=lambda s: int(''.join(filter(str.isdigit, s)) or 0))]
     return JsonResponse({'results': results, 'responders': responders, 'failed': failed})
 
-    """
-    Run the same fan-out SPARQL logic as in query_view, but return
-    either:
-      • { results: [ {bucket,n}, … ], responders: […], failed: […] }
-        for ageDist
-      • { distribution_true: […], distribution_false: […],
-          kl_divergence: float, responders: […], failed: […] }
-        for klDiv
-    """
-    key = request.POST.get('query_key')
-    entries = catalog()
-    entry = next((e for e in entries if e.get('analytics_key') == key), None)
-    if not entry:
-        return JsonResponse({"results": [], "responders": [], "failed": []})
 
-    # 1) Build SPARQL string
-    q = prefixes + entry['template']
-    for param in entry['params']:
-        v = request.POST.get(param) or ''
-        q = q.replace(f'{{{param}}}', v)
-
-    entry['template'] = entry['template'].replace('<{', '**<').replace('}>', '>**')
-
-    # 2) Fan-out to endpoints, collect raw bindings
-    raw_bindings = []
-    responders = []
-    failed = []
-
-    for ep in Endpoint.objects.all():
-        url = ep.url.rstrip('/') + '/sparql-protected/'
-        try:
-            resp = requests.post(
-                url,
-                data=urllib.parse.urlencode({
-                    'template': entry['template'],
-                    'query':    q,
-                }, quote_via=urllib.parse.quote, safe=''),
-                headers={
-                    'Accept': 'application/sparql-results+json',
-                    'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8'
-                },
-                timeout=5
-            )
-            resp.raise_for_status()
-            data = resp.json()
-
-            # Extract SPARQL bindings
-            if isinstance(data.get('results'), list):
-                bds = data['results']
-            elif data.get('results', {}).get('bindings'):
-                bds = data['results']['bindings']
-            else:
-                bds = []
-
-            # Normalize and collect
-            for bd in bds:
-                def norm(k):
-                    v = bd.get(k)
-                    return (isinstance(v, dict) and v.get('value')) or v
-                raw_bindings.append({
-                    'b':        norm('b'),
-                    'ageOn':    norm('ageOn'),
-                    'bracket':  norm('bracket'),
-                    'n':        norm('n'),
-                    'endpoint': ep.name,
-                    'logo_url': ep.logo_url,
-                })
-
-            responders.append({
-                'name':     ep.name,
-                'logo_url': ep.logo_url
-            })
-
-
-        except Exception:
-            failed.append(ep.name)
-            continue
-
-    # 3) Branch on analytics key
-    if key == 'klDiv':
-        # Split ages by bulbar flag
-        #ages_true  = [int(r['ageOn']) for r in raw_bindings if str(r['b']).lower() == 'true']
-        #ages_false = [int(r['ageOn']) for r in raw_bindings if str(r['b']).lower() == 'false']
-        
-        # Split ages by bulbar flag, parsing as float
-        if key == 'klDiv':
-            ages_true, ages_false = [], []
-            for r in raw_bindings:
-                try:
-                    age = float(r['ageOn'])
-                except (TypeError, ValueError):
-                    continue
-                if str(r['b']).lower() == 'true':
-                    ages_true.append(age)
-                else:
-                    ages_false.append(age)
-
-
-        all_ages = ages_true + ages_false
-        if not all_ages:
-            return JsonResponse({
-                "distribution_true": [],
-                "distribution_false": [],
-                "kl_divergence":     None,
-                "responders":        responders,
-                "failed":            failed
-            })
-
-        # Shared bin edges
-        bins = np.linspace(min(all_ages), max(all_ages), num=11)
-        p_counts, _     = np.histogram(ages_true,  bins=bins)
-        q_counts, edges = np.histogram(ages_false, bins=bins)
-
-        # Convert to PMFs with smoothing
-        eps = 1e-9
-        total = (p_counts + q_counts + 2*eps).sum()
-        p = (p_counts + eps) / total
-        q = (q_counts + eps) / total
-
-        # Compute KL divergence D(P‖Q)
-        kl = float((p * np.log(p / q)).sum())
-
-        # Build JSON-safe distributions
-        dist_true = [
-            {"range": f"{edges[i]:.0f}–{edges[i+1]:.0f}", "p": float(p[i])}
-            for i in range(len(p))
-        ]
-        dist_false = [
-            {"range": f"{edges[i]:.0f}–{edges[i+1]:.0f}", "p": float(q[i])}
-            for i in range(len(q))
-        ]
-
-        return JsonResponse({
-            "distribution_true":  dist_true,
-            "distribution_false": dist_false,
-            "kl_divergence":      kl,
-            "responders":         responders,
-            "failed":             failed
-        })
-
-    # Fallback: ageDist (merge brackets → counts)
-    agg = {}
-    for r in raw_bindings:
-        b = r.get('bracket')
-        c = int(r.get('n') or 0)
-        agg[b] = agg.get(b, 0) + c
-
-    # **Return bracket & n** so the existing JS still works
-    results = [
-        {"bracket": label, "n": agg[label]}
-        for label in sorted(
-            agg.keys(),
-            key=lambda s: int(''.join(filter(str.isdigit, s)) or 0)
-        )
-    ]
-
-    return JsonResponse({
-        "results":    results,
-        "responders": responders,
-        "failed":     failed
-    })
-    
 @require_POST
 @login_required
 def train_model(request):
