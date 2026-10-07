@@ -607,6 +607,7 @@
         // show endpoint logos
         const $ctr = $('#analytics-contributors').empty().show();
         (json.responders || []).forEach(ep => {
+          if (!ep.logo_url) { $ctr.append(`<span class="me-2 mb-2">${ep.name}</span>`); return; }
           $ctr.append(`
             <img src="${ep.logo_url}"
                  alt="${ep.name}"

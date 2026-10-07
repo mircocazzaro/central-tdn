@@ -8,3 +8,8 @@ class Endpoint(models.Model):
         blank=True, 
         null=True
     )
+
+    @property
+    def logo_url(self):
+        """URL of the logo, or '' when none was uploaded (logo is optional)."""
+        return self.logo.url if self.logo else ''
