@@ -69,3 +69,15 @@ class CatalogRelease(models.Model):
 
     class Meta:
         ordering = ['-version']
+
+
+class OntologyRelease(models.Model):
+    """A published version of the ontology (Turtle), as sent to the endpoints."""
+    version = models.PositiveIntegerField(unique=True)
+    filename = models.CharField(max_length=200)
+    ttl = models.TextField()
+    sha256 = models.CharField(max_length=64)
+    created = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-version']
