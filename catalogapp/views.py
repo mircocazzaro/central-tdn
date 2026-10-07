@@ -7,14 +7,13 @@ from django.contrib        import messages
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
-import json
 from functools import wraps
 
 from .queries              import catalog, get_entry
 from .models               import Endpoint
 from .dispatch             import dispatch, probe_all
 from .forms                import QueryForm, EndpointForm
-from .forms import QUESTION_CHOICES
+from .forms import QUESTION_CHOICES, DISEASE_CHOICES
 import base64
 import io
 import pandas as pd
@@ -23,7 +22,9 @@ from sklearn.tree import DecisionTreeRegressor, plot_tree
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, r2_score
 import uuid
-import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Agg')  # headless, no GUI backend in a threaded server
+import matplotlib.pyplot as plt  # noqa: E402
 
 # simple in‐memory store for trained models
 _models = {}
@@ -146,9 +147,9 @@ def central_catalog(request):
 
     return render(request, "catalogapp/catalog.html", {
         "catalog": entries,
+        # Single source for the dropdowns: the same lists the form validates against
         "QUESTION_CHOICES": QUESTION_CHOICES,
-        # add this line:
-        "QUESTION_CHOICES_JSON": json.dumps(QUESTION_CHOICES),
+        "DISEASE_CHOICES": DISEASE_CHOICES,
     })
 
 
