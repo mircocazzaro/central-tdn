@@ -32,12 +32,41 @@ Central listens on port 8000. The login account `admin` (or
 `CENTRAL_ADMIN_USER`) is created on first start. Database and logos are kept
 in the `central-state` volume.
 
-## Registering endpoints
+## Endpoints joining the network
 
-Go to **Endpoints** in the navbar (manager password: `ENDPOINT_MANAGER_PASSWORD`
-in `centralproject/settings.py`) and add each node with its base URL,
-e.g. `http://tdn.example.org/api0`. Central posts queries to
-`<base URL>/sparql-protected/`. The logo is optional.
+Endpoints apply from their **HDN Network** page by entering this Central's
+URL. Applications appear under **Endpoints** in the navbar (manager password:
+`ENDPOINT_MANAGER_PASSWORD` in `centralproject/settings.py`), with the
+endpoint's key fingerprint. When you approve an application, Central notifies
+the endpoint. The endpoint joins only if it answers, signed with the key it
+applied with, at the URL it declared. A new member immediately receives the
+latest published catalog and ontology.
+
+Endpoints can still be added by hand (**+ Add**, base URL such as
+`http://tdn.example.org/api0`). They receive queries, but no catalog or
+ontology updates, because Central has no key for them. Central posts queries
+to `<base URL>/sparql-protected/`. The logo is optional.
+
+## Distributing the query catalog and the ontology
+
+From the same page:
+
+- **Publish query catalog** sends the catalog in `catalogapp/queries.py` to
+  every enrolled endpoint. The version number increases only when the content
+  changes. Templates whose parameters have no grammar on the endpoints (today
+  `q05_L2`, `starting_date`) are left out, and a message says so.
+- **Publish ontology** uploads a Turtle file as the next ontology version and
+  sends it. Each endpoint installs it right away and removes the mappings that
+  use terms the new ontology no longer declares. The page reports, for each
+  endpoint, how many mappings were removed and kept, or why the ontology was
+  refused (invalid Turtle, `owl:imports` not available offline).
+
+The table shows the catalog and ontology version installed on each endpoint.
+All network messages are signed with Ed25519. This Central's key is created on
+first use in `hdn/identity.pem` (or `$HDN_STATE_DIR/hdn/` in Docker). Its
+fingerprint is shown on the Endpoints page. Keep the key: if it changes,
+enrolled endpoints refuse this Central. `HDN_CENTRAL_NAME` sets the name shown
+to endpoints.
 
 ## Layout
 
