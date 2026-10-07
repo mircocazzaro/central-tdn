@@ -101,17 +101,10 @@
   
   </div>
 
-<!-- 1) A real <script> that just contains raw JSON -->
-  <script id="questionChoices" type="application/json">
-    {{ QUESTION_CHOICES_JSON|safe }}
-  </script>
-  
-  <!-- 2) Immediately read & parse it into a JS var -->
+{{ QUESTION_CHOICES|json_script:"questionChoices" }}
+  {{ DISEASE_CHOICES|json_script:"diseaseChoices" }}
   <script>
-    const questionChoices =
-      JSON.parse(
-        document.getElementById('questionChoices').textContent
-      );
+    const questionChoices = JSON.parse(document.getElementById('questionChoices').textContent);
   </script>
 
   <script src="{% static 'catalogapp/vendor/chart-4.5.1.umd.min.js' %}"></script>
@@ -170,11 +163,8 @@
       });
       
       // GLOBALS
-      const diseasesMap = [
-        ['NCIT:C34373','Amyotrophic Lateral Sclerosis'],
-        ['NCIT:C3243','Multiple Sclerosis'],
-        ['NCIT:C26845','Parkinson Disease'],
-      ];
+      // [code, label] pairs from forms.DISEASE_CHOICES
+      const diseasesMap = JSON.parse(document.getElementById('diseaseChoices').textContent);
       const treeParams = [
         'criterion','splitter','max_depth','min_samples_split',
         'min_samples_leaf','max_features','random_state'

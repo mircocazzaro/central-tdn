@@ -43,6 +43,9 @@ TEMPLATES = [{
 
 
 
+# Keep the existing integer ids (no migration needed)
+DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
+
 WSGI_APPLICATION = 'centralproject.wsgi.application'
 
 STATIC_URL = '/static/'
@@ -62,9 +65,6 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # Simple manager password (in real life use env var!)
 ENDPOINT_MANAGER_PASSWORD = 'supersecret'
 
-STATICFILES_DIRS = [
-    BASE_DIR / 'static',
-]
 
 # Redirect here after a successful login
 LOGIN_REDIRECT_URL = '/catalog/'  
