@@ -232,3 +232,66 @@ def describe(results):
                 (data or {}).get('error', '') if isinstance(data, dict) else '')
             out.append((ep.name, False, f"{'HTTP %s ' % status if status else ''}{detail}".strip()))
     return out
+
+
+# ---------------------------------------------------------------------------
+# Ontology distribution
+# ---------------------------------------------------------------------------
+
+MAX_ONTOLOGY_BYTES = 8 * 1024 * 1024
+
+
+class InvalidUpload(ValueError):
+    pass
+
+
+def new_ontology_release(filename, data):
+    """Store an uploaded Turtle file as the next ontology version.
+
+    Central only checks size and encoding; the endpoints parse the ontology
+    and refuse it (reported per endpoint) if it is not valid.
+    """
+    from .models import OntologyRelease
+    if not data:
+        raise InvalidUpload('the file is empty')
+    if len(data) > MAX_ONTOLOGY_BYTES:
+        raise InvalidUpload(f'the file exceeds {MAX_ONTOLOGY_BYTES // (1024 * 1024)} MB')
+    try:
+        text = data.decode('utf-8')
+    except UnicodeDecodeError:
+        raise InvalidUpload('the file is not UTF-8 text')
+    digest = hashlib.sha256(data).hexdigest()
+    with transaction.atomic():
+        last = OntologyRelease.objects.select_for_update().order_by('-version').first()
+        if last and last.sha256 == digest:
+            return last
+        return OntologyRelease.objects.create(
+            version=(last.version + 1) if last else 1, filename=filename[:200],
+            ttl=text, sha256=digest)
+
+
+def push_ontology(release, endpoints=None):
+    payload = {'version': release.version, 'ttl': release.ttl, 'sha256': release.sha256}
+    results = push_all('ontology', payload, '/hdn/ontology/', endpoints)
+    for ep, ok, status, data in results:
+        if ok and isinstance(data, dict) and data.get('version') == release.version:
+            Endpoint.objects.filter(pk=ep.pk).update(ontology_version=release.version)
+        elif isinstance(data, dict) and status == 409 and isinstance(data.get('installed'), int):
+            Endpoint.objects.filter(pk=ep.pk).update(ontology_version=data['installed'])
+    return results
+
+
+def describe_ontology(results):
+    """Like describe(), with the mapping outcome reported by each endpoint."""
+    out = []
+    for (name, ok, detail), (_, _, _, data) in zip(describe(results), results):
+        if ok and isinstance(data, dict) and data.get('status') == 'installed':
+            m = data.get('mapping')
+            if m in ('reduced', 'emptied'):
+                detail = f"installed, {data.get('dropped')} mappings removed, {data.get('kept')} kept"
+            elif m == 'unchanged':
+                detail = 'installed, all mappings still valid'
+            else:
+                detail = 'installed (no mapping yet)'
+        out.append((name, ok, detail))
+    return out

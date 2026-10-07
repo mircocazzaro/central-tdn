@@ -10,7 +10,7 @@ from django.http import JsonResponse
 from functools import wraps
 
 from .queries              import catalog, get_entry
-from .models               import Endpoint, EnrollmentRequest, CatalogRelease
+from .models               import Endpoint, EnrollmentRequest, CatalogRelease, OntologyRelease
 from .                     import network
 from .dispatch             import dispatch, probe_all
 from .forms                import QueryForm, EndpointForm
@@ -84,14 +84,15 @@ def endpoint_manager(request):
         'applications': EnrollmentRequest.objects.filter(status=EnrollmentRequest.PENDING),
         'central_fingerprint': network.identity().fingerprint,
         'catalog_release': CatalogRelease.objects.order_by('-version').first(),
+        'ontology_release': OntologyRelease.objects.order_by('-version').first(),
     })
 
 
-def _report(request, what, results):
+def _report(request, what, results, describe=network.describe):
     """One message per endpoint with the outcome of a distribution."""
     if not results:
         messages.warning(request, f'{what}: no enrolled endpoint to send it to.')
-    for name, ok, detail in network.describe(results):
+    for name, ok, detail in describe(results):
         if ok:
             messages.success(request, f'{what} → {name}: {detail}')
         else:
@@ -106,6 +107,24 @@ def publish_catalog(request):
     for key, reason in skipped:
         messages.warning(request, f'{key} not published: {reason}.')
     _report(request, f'Catalog v{release.version}', network.push_catalog(release))
+    return redirect('endpoint_manager')
+
+
+@require_manager_password
+@require_POST
+def publish_ontology(request):
+    """Upload a new ontology (Turtle) and send it to every enrolled endpoint."""
+    f = request.FILES.get('ontology')
+    if f is None:
+        messages.error(request, 'Choose a Turtle (.ttl) file to publish.')
+        return redirect('endpoint_manager')
+    try:
+        release = network.new_ontology_release(f.name, f.read(network.MAX_ONTOLOGY_BYTES + 1))
+    except network.InvalidUpload as exc:
+        messages.error(request, f'Ontology not published: {exc}.')
+        return redirect('endpoint_manager')
+    _report(request, f'Ontology v{release.version}', network.push_ontology(release),
+            describe=network.describe_ontology)
     return redirect('endpoint_manager')
 
 
@@ -127,6 +146,10 @@ def enrollment_decide(request, pk):
             release = CatalogRelease.objects.order_by('-version').first()
             if release:
                 _report(request, f'Catalog v{release.version}', network.push_catalog(release, [ep]))
+            onto = OntologyRelease.objects.order_by('-version').first()
+            if onto:
+                _report(request, f'Ontology v{onto.version}', network.push_ontology(onto, [ep]),
+                        describe=network.describe_ontology)
         else:
             messages.info(request, f'Application of "{req.name}" rejected.')
     return redirect('endpoint_manager')

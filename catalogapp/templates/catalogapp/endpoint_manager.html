@@ -21,6 +21,23 @@
         {% if catalog_release %}Last published: v{{ catalog_release.version }} ({{ catalog_release.created|date:"Y-m-d H:i" }}){% else %}Not published yet{% endif %}
       </span>
     </div>
+    <form method="post" action="{% url 'publish_ontology' %}" enctype="multipart/form-data"
+          class="d-flex flex-wrap gap-2 align-items-center mt-3">
+      {% csrf_token %}
+      <label for="ontology-file" class="form-label mb-0 small">New ontology (Turtle)</label>
+      <input id="ontology-file" type="file" name="ontology" accept=".ttl,text/turtle"
+             class="form-control form-control-sm" style="max-width: 22rem" required>
+      <button type="submit" class="btn btn-outline-primary btn-sm">Publish ontology</button>
+      <span class="small text-muted">
+        {% if ontology_release %}Last published: v{{ ontology_release.version }} ({{ ontology_release.filename }}, {{ ontology_release.created|date:"Y-m-d H:i" }}){% else %}Not published yet{% endif %}
+      </span>
+    </form>
+    <p class="small text-muted mt-2 mb-0">
+      Endpoints install a new ontology immediately and remove the mappings that use
+      terms it no longer declares.
+    </p>
+    <div>
+    </div>
   </div>
 </div>
 
@@ -61,6 +78,7 @@
       <th>URL</th>
       <th>Key</th>
       <th>Catalog</th>
+      <th>Ontology</th>
       <th>Status</th>
       <th>Actions</th>
     </tr>
@@ -73,6 +91,7 @@
         <td><a href="{{ ep.url }}" target="_blank" rel="noopener">{{ ep.url }}</a></td>
         <td>{% if ep.fingerprint %}<code class="small">{{ ep.fingerprint }}</code>{% else %}<span class="text-muted small">added by hand: no updates</span>{% endif %}</td>
         <td class="small">{% if ep.catalog_version is not None %}v{{ ep.catalog_version }}{% else %}–{% endif %}</td>
+        <td class="small">{% if ep.ontology_version is not None %}v{{ ep.ontology_version }}{% else %}–{% endif %}</td>
         <td>
           {% if ep.online %}
             <span class="badge bg-success">Online</span>
