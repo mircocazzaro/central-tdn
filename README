@@ -55,11 +55,14 @@ From the same page:
   every enrolled endpoint. The version number increases only when the content
   changes. Templates whose parameters have no grammar on the endpoints (today
   `q05_L2`, `starting_date`) are left out, and a message says so.
-- **Publish ontology** uploads a Turtle file as the next ontology version and
-  sends it. Each endpoint installs it right away and removes the mappings that
-  use terms the new ontology no longer declares. The page reports, for each
-  endpoint, how many mappings were removed and kept, or why the ontology was
-  refused (invalid Turtle, `owl:imports` not available offline).
+- **Publish ontology** needs two files: the ontology (`.ttl`) and the mapping
+  template written for it (`.obda`). The template holds the blocks that
+  *Map Data to HERO* offers on each endpoint. The version increases when
+  either file changes. Each endpoint installs both right away. It also removes
+  the site mappings that use terms the new ontology no longer declares. The
+  page reports, for each endpoint, how many mappings were removed and kept, or
+  why the update was refused: invalid Turtle, `owl:imports` not available
+  offline, or a template using terms the ontology does not declare.
 
 The table shows the catalog and ontology version installed on each endpoint.
 All network messages are signed with Ed25519. This Central's key is created on

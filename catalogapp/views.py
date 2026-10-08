@@ -114,12 +114,14 @@ def publish_catalog(request):
 @require_POST
 def publish_ontology(request):
     """Upload a new ontology (Turtle) and send it to every enrolled endpoint."""
-    f = request.FILES.get('ontology')
-    if f is None:
-        messages.error(request, 'Choose a Turtle (.ttl) file to publish.')
+    f, t = request.FILES.get('ontology'), request.FILES.get('mapping_template')
+    if f is None or t is None:
+        messages.error(request, 'An ontology update needs both files: the ontology (.ttl) '
+                                'and the mapping template written for it (.obda).')
         return redirect('endpoint_manager')
+    limit = network.MAX_ONTOLOGY_BYTES + 1
     try:
-        release = network.new_ontology_release(f.name, f.read(network.MAX_ONTOLOGY_BYTES + 1))
+        release = network.new_ontology_release(f.name, f.read(limit), t.name, t.read(limit))
     except network.InvalidUpload as exc:
         messages.error(request, f'Ontology not published: {exc}.')
         return redirect('endpoint_manager')
