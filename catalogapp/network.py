@@ -245,33 +245,44 @@ class InvalidUpload(ValueError):
     pass
 
 
-def new_ontology_release(filename, data):
-    """Store an uploaded Turtle file as the next ontology version.
+def _text(what, data):
+    if not data:
+        raise InvalidUpload(f'the {what} is empty')
+    if len(data) > MAX_ONTOLOGY_BYTES:
+        raise InvalidUpload(f'the {what} exceeds {MAX_ONTOLOGY_BYTES // (1024 * 1024)} MB')
+    try:
+        return data.decode('utf-8')
+    except UnicodeDecodeError:
+        raise InvalidUpload(f'the {what} is not UTF-8 text')
 
-    Central only checks size and encoding; the endpoints parse the ontology
-    and refuse it (reported per endpoint) if it is not valid.
+
+def new_ontology_release(filename, data, template_filename, template_data):
+    """Store an ontology and its mapping template as the next version.
+
+    Both are required. Central only checks size and encoding; each endpoint
+    parses them and refuses the pair (reported per endpoint) if the ontology
+    is not valid or the template uses terms the ontology does not declare.
     """
     from .models import OntologyRelease
-    if not data:
-        raise InvalidUpload('the file is empty')
-    if len(data) > MAX_ONTOLOGY_BYTES:
-        raise InvalidUpload(f'the file exceeds {MAX_ONTOLOGY_BYTES // (1024 * 1024)} MB')
-    try:
-        text = data.decode('utf-8')
-    except UnicodeDecodeError:
-        raise InvalidUpload('the file is not UTF-8 text')
+    text = _text('ontology file', data)
+    if '[MappingDeclaration]' not in (template_text := _text('mapping template', template_data)):
+        raise InvalidUpload('the mapping template is not an Ontop .obda file')
     digest = hashlib.sha256(data).hexdigest()
+    tdigest = hashlib.sha256(template_data).hexdigest()
     with transaction.atomic():
         last = OntologyRelease.objects.select_for_update().order_by('-version').first()
-        if last and last.sha256 == digest:
+        if last and last.sha256 == digest and last.template_sha256 == tdigest:
             return last
         return OntologyRelease.objects.create(
             version=(last.version + 1) if last else 1, filename=filename[:200],
-            ttl=text, sha256=digest)
+            ttl=text, sha256=digest, template_filename=template_filename[:200],
+            mapping_template=template_text, template_sha256=tdigest)
 
 
 def push_ontology(release, endpoints=None):
-    payload = {'version': release.version, 'ttl': release.ttl, 'sha256': release.sha256}
+    payload = {'version': release.version, 'ttl': release.ttl, 'sha256': release.sha256,
+               'mapping_template': release.mapping_template,
+               'template_sha256': release.template_sha256}
     results = push_all('ontology', payload, '/hdn/ontology/', endpoints)
     for ep, ok, status, data in results:
         if ok and isinstance(data, dict) and data.get('version') == release.version:

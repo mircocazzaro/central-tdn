@@ -24,17 +24,22 @@
     <form method="post" action="{% url 'publish_ontology' %}" enctype="multipart/form-data"
           class="d-flex flex-wrap gap-2 align-items-center mt-3">
       {% csrf_token %}
-      <label for="ontology-file" class="form-label mb-0 small">New ontology (Turtle)</label>
+      <label for="ontology-file" class="form-label mb-0 small">New ontology (.ttl)</label>
       <input id="ontology-file" type="file" name="ontology" accept=".ttl,text/turtle"
-             class="form-control form-control-sm" style="max-width: 22rem" required>
+             class="form-control form-control-sm" style="max-width: 18rem" required>
+      <label for="template-file" class="form-label mb-0 small">Mapping template (.obda)</label>
+      <input id="template-file" type="file" name="mapping_template" accept=".obda"
+             class="form-control form-control-sm" style="max-width: 18rem" required>
       <button type="submit" class="btn btn-outline-primary btn-sm">Publish ontology</button>
       <span class="small text-muted">
-        {% if ontology_release %}Last published: v{{ ontology_release.version }} ({{ ontology_release.filename }}, {{ ontology_release.created|date:"Y-m-d H:i" }}){% else %}Not published yet{% endif %}
+        {% if ontology_release %}Last published: v{{ ontology_release.version }} ({{ ontology_release.filename }} + {{ ontology_release.template_filename }}, {{ ontology_release.created|date:"Y-m-d H:i" }}){% else %}Not published yet{% endif %}
       </span>
     </form>
     <p class="small text-muted mt-2 mb-0">
-      Endpoints install a new ontology immediately and remove the mappings that use
-      terms it no longer declares.
+      The ontology is always sent with its mapping template, the blocks that
+      "Map Data to HERO" offers on each endpoint. Endpoints install both
+      immediately, remove the site mappings that use terms the ontology no longer
+      declares, and refuse the update if the template uses undeclared terms.
     </p>
     <div>
     </div>

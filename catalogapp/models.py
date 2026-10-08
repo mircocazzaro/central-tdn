@@ -72,11 +72,15 @@ class CatalogRelease(models.Model):
 
 
 class OntologyRelease(models.Model):
-    """A published version of the ontology (Turtle), as sent to the endpoints."""
+    """A published version of the ontology (Turtle) with the mapping template
+    written for it (.obda), as sent to the endpoints. Always both."""
     version = models.PositiveIntegerField(unique=True)
     filename = models.CharField(max_length=200)
     ttl = models.TextField()
     sha256 = models.CharField(max_length=64)
+    template_filename = models.CharField(max_length=200, default='')
+    mapping_template = models.TextField(default='')
+    template_sha256 = models.CharField(max_length=64, default='')
     created = models.DateTimeField(auto_now_add=True)
 
     class Meta:
