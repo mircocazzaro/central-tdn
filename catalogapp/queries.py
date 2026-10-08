@@ -1,5 +1,26 @@
 import hashlib
 
+# Prologue prepended to every template before it is sent to the endpoints.
+# Byte-identical to PROLOGUE in tdn-endpoint/myapp/catalog.py.
+PROLOGUE = '''PREFIX bto:   <https://w3id.org/brainteaser/ontology/schema/>
+PREFIX skos:  <http://www.w3.org/2004/02/skos/core#>
+PREFIX xsd:   <http://www.w3.org/2001/XMLSchema#>
+PREFIX NCIT:  <http://purl.obolibrary.org/obo/NCIT_>
+'''
+
+# Prefixes the visual query builder writes (the prologue, plus rdfs for labels).
+PREFIXES_FOR_BUILDER = PROLOGUE + 'PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>\n'
+
+# Grammar of each parameter type, as enforced by the endpoints
+# (ParamType.pattern in tdn-endpoint/myapp/catalog.py, applied with fullmatch).
+WIRE_GRAMMARS = {
+    'disease': r'NCIT:C[1-9][0-9]{0,9}',
+    'age': r'[0-9]{1,3}(?:\.[0-9]{1,2})?',
+    'sex': r'[A-Za-z]{1,16}',
+    'alsfrs_question': r'<https://w3id\.org/brainteaser/ontology/schema/alsfrs(?:[1-9]|1[0-2])>',
+    'atc_code': r'[A-Z](?:[0-9]{2}(?:[A-Z](?:[A-Z](?:[0-9]{2})?)?)?)?',
+}
+
 RAW_TEMPLATES = [
     # Level 0
     {

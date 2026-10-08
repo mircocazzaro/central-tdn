@@ -196,8 +196,12 @@ def current_catalog_release():
     from .queries import federated_templates
     from .views import prefixes
 
+    from .rewriting.lattice import derive
+
     published, skipped = federated_templates()
-    doc = {'prologue': prefixes, 'templates': published}
+    # Derived templates (sub-patterns of the hand-written ones) are recomputed
+    # at every publication; they are hidden from the legacy catalog UI.
+    doc = {'prologue': prefixes, 'templates': published + derive(published)}
     digest = _digest(doc)
     with transaction.atomic():
         last = CatalogRelease.objects.select_for_update().order_by('-version').first()
