@@ -4,6 +4,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 HDN_STATE_DIR=/app/state
 # Unprivileged user: Central does not run as root.
 RUN useradd --create-home --uid 10001 hdn
 WORKDIR /app
+# WORKDIR is created by root: give it to the app user, which writes
+# staticfiles/ and state/ here.
+RUN chown hdn:hdn /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir --only-binary=:all: -r requirements.txt
 COPY --chown=hdn:hdn . .

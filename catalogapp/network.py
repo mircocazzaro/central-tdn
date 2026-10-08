@@ -16,8 +16,7 @@ from pathlib import Path
 
 import requests
 from django.conf import settings
-from django.core.exceptions import ValidationError
-from django.core.validators import URLValidator
+
 from django.db import IntegrityError, transaction
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
@@ -97,10 +96,9 @@ def hdn_enroll(request):
         payload = json.loads(body.decode('utf-8'))
         name = str(payload['name']).strip()[:100]
         url = str(payload['url']).strip()
-        URLValidator(schemes=['http', 'https'])(url)
-        if payload.get('public_key') != sender or not name:
+        if not hdnsig.valid_node_url(url) or payload.get('public_key') != sender or not name:
             raise ValueError
-    except (UnicodeDecodeError, ValueError, KeyError, TypeError, ValidationError):
+    except (UnicodeDecodeError, ValueError, KeyError, TypeError):
         return _signed_json('enroll', nonce, 400, {
             'error': 'name, url (http/https) and public_key (the signing key) are required'})
 
