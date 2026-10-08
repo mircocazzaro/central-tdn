@@ -78,6 +78,40 @@ Central waits up to 240 s for each endpoint (`HDN_ENDPOINT_TIMEOUT`), in
 parallel. Galois endpoints first refill their tables from an LLM and can take
 that long.
 
+## Composing your own query (query rewriting)
+
+**Compose a query** in the navbar lets users build a query visually or write
+it in SPARQL. Endpoints still execute only catalog queries: Central looks for
+an equivalent rewriting of the user query in terms of catalog queries, runs
+those, and computes joins, filters and aggregates itself.
+
+- **Derived queries.** At every catalog publication, Central factorizes the
+  hand-written templates into their sub-patterns. A sub-pattern has at least
+  two triples, is connected and contains a typing triple. Each one becomes a
+  derived catalog query with a `d_...` key: published to the endpoints like
+  the others, but not listed in the legacy Catalog page.
+  - A derived query inherits the highest level among the templates it comes
+    from.
+  - Adding a template adds its sub-patterns and never lowers an existing
+    level. Unchanged sub-patterns keep their key.
+- **Rewriting.**
+  - A query that is an instance of a template runs that template as it is.
+  - Otherwise Central applies MiniCon over the queries that return rows. A
+    template parameter must be bound to a constant of the user query that its
+    grammar accepts.
+  - The plan with the lowest level is chosen.
+  - Results are joined per endpoint, never across endpoints. Aggregates are
+    given per endpoint and over all endpoints.
+  - The plan, with the SPARQL sent to the endpoints, is shown to the user.
+- **Admission.** `catalogapp/rewriting/admission.py` decides whether a plan
+  may run. Today it admits every plan, and endpoints enforce their own level
+  on each catalog query. A new disclosure formalism replaces this module.
+- **Fragment.** Supported: basic graph patterns, FILTER comparisons with
+  `&&`, `||`, `!`, COUNT/SUM/AVG/MIN/MAX, GROUP BY, ORDER BY, LIMIT.
+  OPTIONAL, UNION, BIND, sub-queries and variable predicates are refused.
+- **Known limit.** An endpoint answers empty when a query is above its level,
+  so a plan can return less than it should. The page says so.
+
 ## Layout
 
 ```
@@ -86,5 +120,8 @@ catalogapp/
   queries.py      query catalog (must match the endpoints' catalog)
   forms.py        parameter forms and allowed values
   views.py        catalog, dispatch, analytics, endpoint manager
+  rewriting/      query rewriting over the catalog (lattice, MiniCon, mediator)
+  compose_views.py  "Compose a query" page and API
+  tests/          python manage.py test catalogapp
   templates/      UI
 ```
