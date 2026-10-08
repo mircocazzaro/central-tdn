@@ -19,5 +19,5 @@ fi
 # One worker: trained models are kept in process memory (see views._models).
 # Threads cover concurrency, since requests mostly wait on the endpoints.
 exec gunicorn centralproject.wsgi:application \
-  --bind 0.0.0.0:8000 --workers 1 --threads 8 --timeout 60 \
+  --bind 0.0.0.0:8000 --workers 1 --threads 8 --timeout 300 \
   --access-logfile - "$@"

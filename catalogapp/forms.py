@@ -42,6 +42,8 @@ DISEASE_CHOICES = [(code, label) for label, code in DISEASE_MAP.items()]
 # it up front and tells the user.
 _AGE = RegexValidator(r'^[0-9]{1,3}(?:\.[0-9]{1,2})?$', "Age in years, e.g. 40 or 40.5.")
 _SEX = RegexValidator(r'^[A-Za-z]{1,16}$', "Letters only, e.g. female.")
+_ATC = RegexValidator(r'^[A-Z](?:[0-9]{2}(?:[A-Z](?:[A-Z](?:[0-9]{2})?)?)?)?$',
+                      "An ATC code in capitals, e.g. N07 or N07XX02.")
 
 
 def _text(label, validator):
@@ -60,6 +62,8 @@ def _field_for(param):
         return _text(param.capitalize(), _AGE)
     if param == 'sex':
         return _text("Sex", _SEX)
+    if param == 'atc':
+        return _text("ATC group", _ATC)
     if param.endswith('date'):
         return forms.DateField(label=param.replace('_', ' ').capitalize(),
                                widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}))

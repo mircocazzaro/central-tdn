@@ -277,6 +277,54 @@ ORDER BY ?anonID ?tDate''',
       'params': ['disease'],
       'description': 'Complete patient profiles for DISEASE'
     },
+
+    # --- Public-knowledge templates -------------------------------------
+    # For Galois endpoints (tdn-endpoint Galois mode), whose tables hold no
+    # patient data: clinical trials and drugs, as mapped by
+    # tdn-endpoint/myapp/galois/schema.py. Other endpoints answer them only
+    # if their own mapping covers these classes.
+    {
+      'level': 0,
+      'key': 'q15_L0',
+      'template': '''ASK WHERE {
+  ?trial a bto:ClinicalTrial ;
+         bto:isAboutDisease {disease} .
+}''',
+      'params': ['disease'],
+      'description': 'Is there any clinical trial about DISEASE?'
+    },
+    {
+      'level': 1,
+      'key': 'q16_L1',
+      'template': '''SELECT (COUNT(DISTINCT ?trial) AS ?nTrials) WHERE {
+  ?trial a bto:ClinicalTrial ;
+         bto:isAboutDisease {disease} .
+}''',
+      'params': ['disease'],
+      'description': 'How many clinical trials are about DISEASE?'
+    },
+    {
+      'level': 4,
+      'key': 'q17_L4',
+      'template': '''SELECT ?trial ?description WHERE {
+  ?trial a bto:ClinicalTrial ;
+         bto:isAboutDisease {disease} .
+  OPTIONAL { ?trial bto:clinicalTrialDescription ?description }
+}''',
+      'params': ['disease'],
+      'description': 'Clinical trials about DISEASE, with their description'
+    },
+    {
+      'level': 4,
+      'key': 'q18_L4',
+      'template': '''SELECT ?drug ?name WHERE {
+  ?drug a bto:PharmacologicSubstance ;
+        skos:broaderTransitive <http://purl.bioontology.org/ontology/UATC/{atc}> .
+  OPTIONAL { ?drug <http://www.w3.org/2000/01/rdf-schema#label> ?name }
+}''',
+      'params': ['atc'],
+      'description': 'Drugs directly under the ATC group ATC'
+    },
 ]
 
 def catalog():
@@ -319,6 +367,8 @@ def wire_type(param):
         return 'alsfrs_question'
     if param == 'sex':
         return 'sex'
+    if param == 'atc':
+        return 'atc_code'
     if param == 'age' or (param.startswith('age') and param[3:].isdigit()):
         return 'age'
     return None

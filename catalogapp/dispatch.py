@@ -1,5 +1,6 @@
 """Fan-out of a query to every registered endpoint, in parallel."""
 import logging
+import os
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 
@@ -9,9 +10,11 @@ from .models import Endpoint
 
 log = logging.getLogger(__name__)
 
-# The endpoint gives its own backend (Ontop) 10 s, so Central must wait longer
-# than that or it would drop answers the endpoint is still producing.
-ENDPOINT_TIMEOUT = 15
+# Central must wait longer than the endpoints: their backend (Ontop) gets
+# 10 s, and an endpoint in Galois mode first refills its tables from an LLM,
+# which can take minutes. Endpoints are queried in parallel, so the wait is
+# bounded by the slowest one. HDN_ENDPOINT_TIMEOUT overrides it.
+ENDPOINT_TIMEOUT = int(os.getenv('HDN_ENDPOINT_TIMEOUT', '240'))
 MAX_WORKERS = 16
 
 

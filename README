@@ -55,6 +55,9 @@ From the same page:
   every enrolled endpoint. The version number increases only when the content
   changes. Templates whose parameters have no grammar on the endpoints (today
   `q05_L2`, `starting_date`) are left out, and a message says so.
+  `q15_L0`–`q18_L4` (clinical trials, drugs by ATC group) target endpoints in
+  Galois mode, whose tables hold public knowledge retrieved from an LLM instead
+  of patient data.
 - **Publish ontology** needs two files: the ontology (`.ttl`) and the mapping
   template written for it (`.obda`). The template holds the blocks that
   *Map Data to HERO* offers on each endpoint. The version increases when
@@ -70,6 +73,10 @@ first use in `hdn/identity.pem` (or `$HDN_STATE_DIR/hdn/` in Docker). Its
 fingerprint is shown on the Endpoints page. Keep the key: if it changes,
 enrolled endpoints refuse this Central. `HDN_CENTRAL_NAME` sets the name shown
 to endpoints.
+
+Central waits up to 240 s for each endpoint (`HDN_ENDPOINT_TIMEOUT`), in
+parallel. Galois endpoints first refill their tables from an LLM and can take
+that long.
 
 ## Layout
 
