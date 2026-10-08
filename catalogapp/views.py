@@ -41,11 +41,7 @@ TREE_PARAMS = [
 ]
 
 
-prefixes = '''PREFIX bto:   <https://w3id.org/brainteaser/ontology/schema/>
-PREFIX skos:  <http://www.w3.org/2004/02/skos/core#>
-PREFIX xsd:   <http://www.w3.org/2001/XMLSchema#>
-PREFIX NCIT:  <http://purl.obolibrary.org/obo/NCIT_>
-'''
+from .queries import PROLOGUE as prefixes  # noqa: E402
 
 def require_manager_password(view_func):
     @wraps(view_func)
