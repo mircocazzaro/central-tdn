@@ -1,13 +1,92 @@
 # HDN Central
 
-Django web app that dispatches catalog SPARQL queries to the registered
-HDN endpoints (`tdn-endpoint`) and merges the answers.
+> **Research use only. Not a medical device.**
+> This software was developed in the HEREDITARY project as a research prototype. It has not been assessed or certified under the EU Medical Device Regulation (EU) 2017/745. It must not be used to diagnose, treat, monitor or make any other decision about individual patients.
+
+<!-- Before publication, replace every TODO and verify the release-specific statements below.
+For this web application, also display the following notice in the user interface:
+"Research prototype of the HEREDITARY project. Not a medical device and not for clinical use. Do not enter personal or patient data."
+This README does not establish that the UI notice is already implemented. -->
+
+## 1. Overview
+
+HDN Central is a Django web application that dispatches catalog SPARQL queries to registered HDN endpoints (`tdn-endpoint`) and merges their answers. It manages endpoint enrollment, distributes the query catalog and ontology, and supports query composition and rewriting over the catalog.
+
+| Field | Value |
+|---|---|
+| Name | HDN Central |
+| Version | TODO: release tag or commit identifier |
+| Type | Software / web application |
+| Owner partner and contact | TODO: responsible HEREDITARY partner, maintainer name and email |
+| License | TODO: SPDX identifier matching the repository LICENSE file |
+| Repository and DOI | https://github.com/mircocazzaro/central-tdn; TODO: DOI, or state that none is assigned |
+| Release date | TODO: date of the documented release |
+| Related task or deliverable | TODO: development task and/or deliverable associated with this release |
+| How to cite | TODO: software citation, publication or DOI |
+
+## 2. Intended use
+
+**Primary intended use.** Research on distributed querying of knowledge graphs through a shared query catalog and ontology. Central coordinates queries across registered endpoints and explores how user queries can be answered through permitted catalog queries, with endpoint-specific disclosure levels.
+
+**Intended users.** Researchers and developers working on knowledge graphs, semantic data integration and distributed query processing, including biomedical research applications within HEREDITARY.
+
+**Out-of-scope uses.** This release must not be used for:
+
+- clinical diagnosis, prognosis, monitoring or treatment of individual patients;
+- decisions about individuals, such as insurance, employment or access to care;
+- re-identification of individuals or unauthorized linkage with other data sources;
+- use with populations or data types beyond those documented and authorized for the relevant research deployment.
+
+The application must not be used to enter personal or patient data. Endpoint data access and any permitted research use require a separately documented deployment context; this software release does not itself authorize access to data.
+
+## 3. Data provenance
+
+Central is query coordination software. Its behavior depends on the data available at the registered endpoints; a software release does not define a single study population.
+
+| Dataset | Source partner | Type (public, synthetic, pseudonymized, anonymized) | Population (size, age, sex, country, condition) | Ethics approval or access conditions |
+|---|---|---|---|---|
+| TODO: list any datasets, fixtures, example data or database snapshots included in this release; if none, explicitly state this after verification | TODO | TODO | TODO, or N/A where appropriate | TODO |
+| Endpoint data used for evaluation, if any | TODO: identify evaluation endpoints and source partners | TODO | TODO | TODO: applicable approval and access conditions, or N/A with reason |
+
+**Release-content verification required.** TODO: inspect the repository and all released files, including fixtures, logs, database snapshots and configuration examples, before asserting: “This repository and the released files contain no personal data, pseudonymized records, identifiers or pseudonymization keys.”
+
+Galois-mode endpoints hold public knowledge retrieved from an LLM instead of patient data. Their sources and any evaluation datasets must be documented for the specific deployment or evaluation; this README does not establish their factual accuracy or provenance.
+
+## 4. Method
+
+- **Algorithm or architecture.** Django mediator over registered SPARQL endpoints. Central distributes a catalog and ontology, dispatches catalog queries in parallel and merges responses. User queries are matched to catalog templates or rewritten using MiniCon. Joins are computed per endpoint; aggregates are reported per endpoint and over all endpoints.
+- **Training setting.** Not applicable to Central: the described release does not train a model. Galois-mode endpoints may use an external LLM to populate their tables.
+- **Privacy techniques.** The described implementation uses catalog login, a password-protected endpoint manager, signed Ed25519 network messages and endpoint-side query-level enforcement. These controls do not establish anonymization or a formal privacy guarantee. No differential privacy or secure aggregation mechanism is described in the supplied technical documentation.
+
+Installation, network administration, query rewriting and source layout are documented after Section 8.
+
+## 5. Performance
+
+- **Evaluation data.** TODO: document datasets, endpoint configurations and internal or external validation for this release; if no evaluation was performed, state that explicitly.
+- **Metrics and results.** TODO: provide measured results, if available, for query-answer correctness/completeness, rewriting coverage and execution time, with the evaluation configuration. No numerical performance results are provided in the supplied technical documentation.
+- **Results by subgroup.** TODO: report results by endpoint, data source or other relevant grouping, if evaluated; otherwise state N/A or not evaluated, with a reason. No demographic subgroup results are provided.
+
+## 6. Known limitations and risks
+
+- **Generalizability.** Behavior depends on the catalog, ontology, endpoint configuration, data and disclosure levels. Performance across deployments and populations has not been established by the supplied documentation.
+- **Known biases and confounders.** Endpoint coverage and disclosure settings can affect which results are returned. In Galois mode, LLM-derived knowledge may contain errors or biases. TODO: add any release-specific bias evaluation; none is supplied here.
+- **Failure modes.** Unsupported SPARQL constructs are refused. A rewriting plan can return incomplete results when an endpoint answers empty for a query above its level. Endpoint failures, timeouts and differences in installed catalog or ontology versions can affect results. Queries requiring joins across endpoints cannot be answered through the documented per-endpoint join behavior. Galois endpoints may take longer because they refill their tables from an LLM.
+- **Privacy risks.** Query parameters and returned answers may contain sensitive information depending on the deployment. Signed messages authenticate network messages; they do not by themselves provide confidentiality or guarantee that repeated queries cannot disclose information. The admission module currently admits every plan, leaving query-level enforcement to endpoints. TODO: document any privacy or security assessment actually performed. Membership inference and model inversion testing are not directly applicable to Central as a non-model release; this does not assess external models used by endpoints.
+
+## 7. Responsible use and reporting
+
+- **Terms of use.** Research use only, within the scope described in Section 2 and under the repository license identified in Section 1. The described catalog requires login and the endpoint manager requires its configured password. Do not interpret these mechanisms as evidence of registration-based access to a trained model. Use only authorized endpoints and data, protect signing keys and configure access and transport security for the deployment.
+- **Contact for misuse or vulnerability reports.** TODO: maintainer or project reporting email. Do not include sensitive data or credentials in public issue reports.
+
+## 8. Acknowledgement
+
+Funded by the European Union under grant agreement No 101137074 (HEREDITARY). Views and opinions expressed are however those of the author(s) only and do not necessarily reflect those of the European Union or the European Health and Digital Executive Agency (HaDEA). Neither the European Union nor the granting authority can be held responsible for them.
 
 ## Installation
 
 Requires Python 3.10+.
 
-```bash
+``​`bash
 git clone https://github.com/mircocazzaro/central-tdn.git
 cd central-tdn
 python3 -m venv .venv
@@ -16,17 +95,17 @@ pip install -r requirements.txt
 python manage.py migrate
 python manage.py createsuperuser      # account used to log in to the catalog
 python manage.py runserver 0.0.0.0:8000
-```
+``​`
 
 Open `http://<host>:8000/` and log in with the account you just created.
 
 ## Installation with Docker
 
-```bash
+``​`bash
 git clone https://github.com/mircocazzaro/central-tdn.git
 cd central-tdn
 CENTRAL_ADMIN_PASSWORD='choose-one' docker compose up -d --build
-```
+``​`
 
 Central listens on port 8000. The login account `admin` (or
 `CENTRAL_ADMIN_USER`) is created on first start. Database and logos are kept
@@ -105,7 +184,8 @@ those, and computes joins, filters and aggregates itself.
   - The plan, with the SPARQL sent to the endpoints, is shown to the user.
 - **Admission.** `catalogapp/rewriting/admission.py` decides whether a plan
   may run. Today it admits every plan, and endpoints enforce their own level
-  on each catalog query. A new disclosure formalism replaces this module.
+  on each catalog query. This module is the intended integration point for a
+  new disclosure formalism.
 - **Fragment.** Supported: basic graph patterns, FILTER comparisons with
   `&&`, `||`, `!`, COUNT/SUM/AVG/MIN/MAX, GROUP BY, ORDER BY, LIMIT.
   OPTIONAL, UNION, BIND, sub-queries and variable predicates are refused.
@@ -114,7 +194,7 @@ those, and computes joins, filters and aggregates itself.
 
 ## Layout
 
-```
+``​`text
 centralproject/   settings, root URLs
 catalogapp/
   queries.py      query catalog (must match the endpoints' catalog)
@@ -124,4 +204,4 @@ catalogapp/
   compose_views.py  "Compose a query" page and API
   tests/          python manage.py test catalogapp
   templates/      UI
-```
+``​`
