@@ -31,9 +31,16 @@ class EndpointForm(forms.ModelForm):
         fields = ['name', 'url', 'logo']
         widgets = {
             'name': forms.TextInput(attrs={'class':'form-control'}),
-            'url':  forms.URLInput(attrs={'class':'form-control'}),
+            'url':  forms.TextInput(attrs={'class':'form-control', 'placeholder': 'http://host:8184'}),
             'logo': forms.ClearableFileInput(attrs={'class':'form-control'}),
         }
+
+    def clean_url(self):
+        from .hdnsig import valid_node_url
+        url = self.cleaned_data['url'].strip().rstrip('/')
+        if not valid_node_url(url):
+            raise forms.ValidationError("Enter a base URL such as http://host:8184 (http or https).")
+        return url
 
 DISEASE_CHOICES = [(code, label) for label, code in DISEASE_MAP.items()]
 

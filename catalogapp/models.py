@@ -3,7 +3,10 @@ from django.db import models
 
 class Endpoint(models.Model):
     name = models.CharField(max_length=100)
-    url  = models.URLField()
+    # CharField, not URLField: Django's URLValidator rejects single-label hosts
+    # (Docker service names, host.docker.internal). EndpointForm checks the URL
+    # with hdnsig.valid_node_url instead.
+    url  = models.CharField(max_length=500)
     logo = models.ImageField(
         upload_to='endpoint_logos/', 
         blank=True, 
