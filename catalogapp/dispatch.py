@@ -59,17 +59,18 @@ PROBE_TIMEOUT = 3
 
 
 def _probe(ep):
-    """True if the endpoint's query URL exists and its server is healthy.
+    """True if the endpoint's server answers.
 
-    Any answer except 404 or 5xx counts: the endpoint replies 405 to a GET
-    today, but Central should not depend on that exact status.
+    Any HTTP answer below 500 counts as online, including 404: the endpoint
+    replies 405 to a GET today, but Central should not depend on that exact
+    status. Connection errors and timeouts, and 5xx answers, count as offline.
     """
     url = ep.url.rstrip('/') + '/sparql-protected/'
     try:
         resp = requests.get(url, timeout=PROBE_TIMEOUT, allow_redirects=False)
     except requests.RequestException:
         return False
-    return resp.status_code != 404 and resp.status_code < 500
+    return resp.status_code < 500
 
 
 def probe_all(endpoints):
