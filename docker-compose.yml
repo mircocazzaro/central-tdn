@@ -9,6 +9,9 @@ services:
     environment:
       DJANGO_SUPERUSER_USERNAME: ${CENTRAL_ADMIN_USER:-admin}
       DJANGO_SUPERUSER_PASSWORD: ${CENTRAL_ADMIN_PASSWORD:?set CENTRAL_ADMIN_PASSWORD}
+      # Set when a reverse proxy serves Central under a path, e.g. /api0
+      HDN_URL_PREFIX: ${HDN_URL_PREFIX:-}
+      HDN_CSRF_TRUSTED_ORIGINS: ${HDN_CSRF_TRUSTED_ORIGINS:-}
     volumes:
       - central-state:/app/state
     restart: unless-stopped
