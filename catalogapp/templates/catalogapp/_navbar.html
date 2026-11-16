@@ -22,7 +22,7 @@
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link{% if request.path == '/' or request.path == '/catalog/' %} active{% endif %}"
+            <a class="nav-link{% if request.path_info == '/' or request.path_info == '/catalog/' %} active{% endif %}"
                href="{% url 'central_catalog' %}">
               Catalog
             </a>
