@@ -4,12 +4,26 @@ services:
     image: hdn-central
     ports:
       - "8070:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       DJANGO_SUPERUSER_USERNAME: ${CENTRAL_ADMIN_USER:-admin}
       DJANGO_SUPERUSER_PASSWORD: ${CENTRAL_ADMIN_PASSWORD:?set CENTRAL_ADMIN_PASSWORD}
     volumes:
       - central-state:/app/state
     restart: unless-stopped
+
+  tunnel:
+    image: alpine:3.20
+    restart: unless-stopped
+    command: >
+      sh -c "apk add --no-cache openssh-client &&
+      cp /keys/id_key /tmp/id_key && chmod 600 /tmp/id_key &&
+      exec ssh -N -o ServerAliveInterval=30 -o ExitOnForwardFailure=yes
+      -o StrictHostKeyChecking=accept-new
+      -i /tmp/id_key -L 0.0.0.0:8184:127.0.0.1:8084 unipd@130.192.100.173"
+    volumes:
+      - ~/.ssh/id_ed25519:/keys/id_key:ro
 
 volumes:
   central-state:

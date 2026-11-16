@@ -23,5 +23,5 @@ urlpatterns = [
     path('logout/',
          auth_views.LogoutView.as_view(next_page='login'),
          name='logout'),
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+] + static('/media/', document_root=settings.MEDIA_ROOT)  # unprefixed: the proxy strips HDN_URL_PREFIX
     
