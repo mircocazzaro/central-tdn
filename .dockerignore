@@ -1,6 +1,10 @@
 .git
 **/__pycache__
 **/*.pyc
+.env
+.env.*
+!.env.example
+*.sqlite3
 db.sqlite3
 db_old.sqlite3
 nohup.out

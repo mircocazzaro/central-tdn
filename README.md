@@ -6,7 +6,7 @@
 <!-- Before publication, replace every TODO and verify the release-specific statements below.
 For this web application, also display the following notice in the user interface:
 "Research prototype of the HEREDITARY project. Not a medical device and not for clinical use. Do not enter personal or patient data."
-This README does not establish that the UI notice is already implemented. -->
+The UI notice is implemented: `catalogapp/templates/catalogapp/_research_notice.html`, included by `base.html`, is shown in a bar fixed at the bottom of every page, including the sign-in and first-start pages. -->
 
 ## 1. Overview
 
@@ -17,7 +17,7 @@ HDN Central is a Django web application that dispatches catalog SPARQL queries t
 | Name | HDN Central |
 | Version | TODO: release tag or commit identifier |
 | Type | Software / web application |
-| Owner partner and contact | TODO: responsible HEREDITARY partner, maintainer name and email |
+| Owner partner and contact | Mirco Cazzaro, University of Padua (UNIPD), HEREDITARY beneficiary; mirco.cazzaro@phd.unipd.it |
 | License | TODO: SPDX identifier matching the repository LICENSE file |
 | Repository and DOI | https://github.com/mircocazzaro/central-tdn; TODO: DOI, or state that none is assigned |
 | Release date | TODO: date of the documented release |
@@ -76,7 +76,7 @@ Installation, network administration, query rewriting and source layout are docu
 ## 7. Responsible use and reporting
 
 - **Terms of use.** Research use only, within the scope described in Section 2 and under the repository license identified in Section 1. The described catalog requires login and the endpoint manager requires its configured password. Do not interpret these mechanisms as evidence of registration-based access to a trained model. Use only authorized endpoints and data, protect signing keys and configure access and transport security for the deployment.
-- **Contact for misuse or vulnerability reports.** TODO: maintainer or project reporting email. Do not include sensitive data or credentials in public issue reports.
+- **Contact for misuse or vulnerability reports.** Mirco Cazzaro, mirco.cazzaro@phd.unipd.it. Report sensitive findings privately. Do not include sensitive data or credentials in public issue reports.
 
 ## 8. Acknowledgement
 
@@ -93,29 +93,39 @@ python3 -m venv .venv
 . .venv/bin/activate
 pip install -r requirements.txt
 python manage.py migrate
-python manage.py createsuperuser      # account used to log in to the catalog
+cp .env.example .env                  # then set HDN_MANAGER_PASSWORD (see Secrets)
 python manage.py runserver 0.0.0.0:8000
 ``​`
 
-Open `http://<host>:8000/` and log in with the account you just created.
+Open `http://<host>:8000/`. On first start no account exists: the page leads to **Create the administrator**, where the administrator chooses a username and password (at least 10 characters). The account is stored only in the local database (`db.sqlite3`, not versioned); `/setup/` closes as soon as a user exists. Until you complete it, anyone who can reach the page can create the first account, so do the first start on a trusted network.
+
+## Secrets
+
+Secrets are not versioned. Copy `.env.example` to `.env` (ignored by Git and by the Docker build context) or set the variables in the environment; the environment wins over `.env`.
+
+| Variable | Purpose |
+|---|---|
+| `HDN_SECRET_KEY` | Django signing key. If unset, a random key is generated on first start and stored with `0600` in `HDN_STATE_DIR/secret_key` |
+| `HDN_MANAGER_PASSWORD` | Password of the Endpoints manager. **Required**: if empty the manager stays closed (HTTP 503). Docker Compose refuses to start without it |
+
+The `SECRET_KEY` and the manager password that earlier versions had in `settings.py`, and the SQLite databases with the administrator account and sessions that were tracked in Git, are removed from the history; treat any value or password that was ever published as compromised and do not reuse it.
 
 ## Installation with Docker
 
 ``​`bash
 git clone https://github.com/mircocazzaro/central-tdn.git
 cd central-tdn
-CENTRAL_ADMIN_PASSWORD='choose-one' docker compose up -d --build
+cp .env.example .env                  # set HDN_MANAGER_PASSWORD (and optionally HDN_SECRET_KEY)
+docker compose up -d --build
 ``​`
 
-Central listens on port 8000. The login account `admin` (or
-`CENTRAL_ADMIN_USER`) is created on first start. Database and logos are kept
-in the `central-state` volume.
+Central listens on port 8000. No account is created by the image: open the page and register the administrator at `/setup/` on first start. Database and logos are kept in the `central-state` volume.
 
 ## Endpoints joining the network
 
 Endpoints apply from their **HDN Network** page by entering this Central's
 URL. Applications appear under **Endpoints** in the navbar (manager password:
-`ENDPOINT_MANAGER_PASSWORD` in `centralproject/settings.py`), with the
+`HDN_MANAGER_PASSWORD`, see Secrets), with the
 endpoint's key fingerprint. When you approve an application, Central notifies
 the endpoint. The endpoint joins only if it answers, signed with the key it
 applied with, at the URL it declared. A new member immediately receives the

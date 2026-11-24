@@ -1,7 +1,7 @@
 # centralproject/urls.py
 from django.urls import path, include
 from catalogapp.views import home
-from catalogapp import network
+from catalogapp import accounts, network
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.auth import views as auth_views
@@ -13,11 +13,9 @@ urlpatterns = [
     path('hdn/enroll/',      network.hdn_enroll,  name='hdn_enroll'),
     path('catalog/',         include('catalogapp.urls')),
     # login
-    path('login/',
-         auth_views.LoginView.as_view(
-             template_name='catalogapp/login.html'
-         ),
-         name='login'),
+    path('login/', accounts.FirstStartLoginView.as_view(), name='login'),
+    # first start: the administrator registers here; closed once a user exists
+    path('setup/', accounts.setup_view, name='setup'),
 
     # logout (optional)
     path('logout/',

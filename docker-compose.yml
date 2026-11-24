@@ -7,8 +7,10 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
-      DJANGO_SUPERUSER_USERNAME: ${CENTRAL_ADMIN_USER:-admin}
-      DJANGO_SUPERUSER_PASSWORD: ${CENTRAL_ADMIN_PASSWORD:?set CENTRAL_ADMIN_PASSWORD}
+      # Secrets come from the environment or the untracked .env (see .env.example).
+      # The administrator account is not set here: register it at /setup/ on first start.
+      HDN_SECRET_KEY: ${HDN_SECRET_KEY:-}
+      HDN_MANAGER_PASSWORD: ${HDN_MANAGER_PASSWORD:?set HDN_MANAGER_PASSWORD}
       # Set when a reverse proxy serves Central under a path, e.g. /api0
       HDN_URL_PREFIX: ${HDN_URL_PREFIX:-}
       HDN_CSRF_TRUSTED_ORIGINS: ${HDN_CSRF_TRUSTED_ORIGINS:-}

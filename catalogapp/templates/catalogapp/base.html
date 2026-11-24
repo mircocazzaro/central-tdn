@@ -14,7 +14,7 @@
 <body>
   <!-- Navbar & Sidebar exactly as in your TDN app -->
   {% include 'catalogapp/_navbar.html' %}
-  <div class="container-xxl main-content" style="margin-top:5em;">
+  <div class="container-xxl main-content" style="margin-top:5em; padding-bottom:3rem;">
     {% if messages %}
 <div class="container mt-3">
   {% for msg in messages %}
@@ -27,6 +27,8 @@
 {% endif %}
     {% block content %}{% endblock %}
   </div>
+  <!-- HEREDITARY notice: visible on every page -->
+  <div class="fixed-bottom" style="z-index:1030;">{% include 'catalogapp/_research_notice.html' %}</div>
   <script src="{% static 'catalogapp/vendor/bootstrap-5.3.0.bundle.min.js' %}"></script>
   <script>
     (function() {

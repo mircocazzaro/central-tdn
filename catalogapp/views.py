@@ -1,4 +1,5 @@
 # catalogapp/views.py
+import hmac
 import requests
 import urllib.parse
 from django.shortcuts      import render, redirect, get_object_or_404
@@ -46,13 +47,20 @@ from .queries import PROLOGUE as prefixes  # noqa: E402
 def require_manager_password(view_func):
     @wraps(view_func)
     def _wrapped(request, *args, **kwargs):
+        # No password configured: the manager stays closed, nobody can open it.
+        if not settings.ENDPOINT_MANAGER_PASSWORD:
+            return render(request, 'catalogapp/manager_login.html', {
+                'error': 'The endpoint manager is not configured: set HDN_MANAGER_PASSWORD.'
+            }, status=503)
+
         # Already authenticated?
         if request.session.get('manager_authenticated'):
             return view_func(request, *args, **kwargs)
 
         # Handle login POST
         if request.method == 'POST' and 'manager_password' in request.POST:
-            if request.POST['manager_password'] == settings.ENDPOINT_MANAGER_PASSWORD:
+            if hmac.compare_digest(request.POST['manager_password'].encode(),
+                                   settings.ENDPOINT_MANAGER_PASSWORD.encode()):
                 request.session['manager_authenticated'] = True
                 return redirect(request.path)
             else:

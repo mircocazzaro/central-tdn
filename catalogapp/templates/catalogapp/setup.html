@@ -1,0 +1,29 @@
+{% extends 'catalogapp/base.html' %}
+{% block content %}
+<div class="card mx-auto" style="max-width:460px">
+  <div class="card-body">
+    <h3 class="card-title">Create the administrator</h3>
+    <p class="text-muted small">This page is available only until the first user exists. The account is stored in the local database of this Central.</p>
+    {% for e in errors %}
+      <div class="alert alert-danger py-2">{{ e }}</div>
+    {% endfor %}
+    <form method="post">
+      {% csrf_token %}
+      <div class="mb-3">
+        <label for="username">Username</label>
+        <input id="username" name="username" class="form-control" value="{{ username }}" autocomplete="username" required autofocus>
+      </div>
+      <div class="mb-3">
+        <label for="password1">Password</label>
+        <input id="password1" type="password" name="password1" class="form-control" autocomplete="new-password" required>
+        <div class="form-text">At least 10 characters; not too common, not only digits, not similar to the username.</div>
+      </div>
+      <div class="mb-3">
+        <label for="password2">Repeat password</label>
+        <input id="password2" type="password" name="password2" class="form-control" autocomplete="new-password" required>
+      </div>
+      <button class="btn btn-primary w-100">Create and sign in</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -3,7 +3,66 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.getenv('***REMOVED-SECRET-KEY***', 'unsafe-dev-key')
+
+def _load_dotenv(path):
+    """Read KEY=VALUE lines of an untracked .env into the environment.
+
+    Variables already set in the environment win. Blank lines and # comments
+    are ignored; values may be quoted.
+    """
+    try:
+        lines = open(path, encoding='utf-8').read().splitlines()
+    except FileNotFoundError:
+        return
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+        key, _, value = line.partition('=')
+        key, value = key.strip(), value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+            value = value[1:-1]
+        if key:
+            os.environ.setdefault(key, value)
+
+
+_load_dotenv(os.environ.get('HDN_ENV_FILE', BASE_DIR / '.env'))
+
+
+def _secret_key(state_dir):
+    """HDN_SECRET_KEY, or a random key generated once and kept (0600) in the state dir."""
+    value = os.environ.get('HDN_SECRET_KEY', '').strip()
+    if value:
+        return value
+    import secrets
+    import time
+    os.makedirs(state_dir, exist_ok=True)
+    path = os.path.join(state_dir, 'secret_key')
+    for _ in range(50):
+        try:
+            with open(path, encoding='utf-8') as fh:
+                value = fh.read().strip()
+            if value:
+                return value
+        except FileNotFoundError:
+            candidate = secrets.token_urlsafe(64)
+            try:
+                fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            except FileExistsError:
+                pass  # another worker is writing it
+            else:
+                with os.fdopen(fd, 'w', encoding='utf-8') as fh:
+                    fh.write(candidate)
+                return candidate
+        time.sleep(0.05)
+    raise RuntimeError('SECRET_KEY unavailable: set HDN_SECRET_KEY')
+
+
+# State lives under HDN_STATE_DIR when set (the Docker image mounts a volume
+# there); otherwise in the project directory, as before.
+STATE_DIR = Path(os.getenv('HDN_STATE_DIR', BASE_DIR))
+
+SECRET_KEY = _secret_key(STATE_DIR)
 #DEBUG = os.getenv('DEBUG', 'False') == 'True'
 DEBUG = True
 ALLOWED_HOSTS = ['*']
@@ -63,10 +122,6 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 WHITENOISE_STATIC_PREFIX = '/static/'
 
 
-# State lives under HDN_STATE_DIR when set (the Docker image mounts a volume
-# there); otherwise in the project directory, as before.
-STATE_DIR = Path(os.getenv('HDN_STATE_DIR', BASE_DIR))
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
@@ -81,8 +136,19 @@ CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.getenv('HDN_CSRF_TRUSTED_ORIGINS',
 MEDIA_URL = f'{URL_PREFIX}/media/'
 MEDIA_ROOT = STATE_DIR / 'media'
 
-# Simple manager password (in real life use env var!)
-ENDPOINT_MANAGER_PASSWORD = '***REMOVED-MANAGER-PASSWORD***'
+# Password of the endpoint manager pages. Never in the code: set
+# HDN_MANAGER_PASSWORD in the environment or in the untracked .env. When it is
+# empty the manager pages stay closed (see views.require_manager_password).
+ENDPOINT_MANAGER_PASSWORD = os.getenv('HDN_MANAGER_PASSWORD', '')
+
+# The first administrator registers on first start (/setup/); passwords are checked.
+AUTH_PASSWORD_VALIDATORS = [
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+     'OPTIONS': {'min_length': 10}},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
+]
 
 # Name shown to endpoints that apply to this Central
 HDN_CENTRAL_NAME = os.getenv('HDN_CENTRAL_NAME', 'HDN Central')

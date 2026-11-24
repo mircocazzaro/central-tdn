@@ -2,3 +2,11 @@
 /hdn/
 /state/
 __pycache__/
+
+# Local database (accounts, sessions, enrollments), runtime output and secrets: never versioned
+*.sqlite3
+nohup.out
+.env
+.env.*
+!.env.example
+/secret_key
